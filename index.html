@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubi6fmjy9vbxeke -->
+<!-- aha-build-id: bmubic4s061xu9su2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1487,17 +1487,63 @@
         setJudgeStep("Now add one result.");
         focusJudge("#memoryPanel");
       });
-      judgeLater(runId, 11800, () => {
-        judgeMemoryChanged = applyJudgeDemoResult();
-        setJudgeStep("Same controls. New evidence.");
-        focusJudge("#memoryPanel");
-      });
-      judgeLater(runId, 14500, () => {
-        renderCreatorMemory();
-        renderExps(applied, true);
-        setJudgeStep(judgeMemoryChanged ? "Creator Memory updated the theory." : "New evidence updated Creator Memory.");
-        focusJudge("#experimentsPanel");
-      });
+      judgeLater(
+        runId,
+        11800,
+        () => {
+          judgeMemoryChanged =
+            applyJudgeDemoResult();
+
+          /*
+            Render Creator Memory NOW,
+            while the camera is still
+            focused on the Memory panel.
+
+            This makes the DEMO RESULT
+            row and updated observation
+            visibly arrive on screen.
+          */
+          renderCreatorMemory();
+
+          setJudgeStep(
+            "Same controls. New evidence."
+          );
+
+          focusJudge(
+            "#memoryPanel"
+          );
+        }
+      );
+      judgeLater(
+        runId,
+        14500,
+        () => {
+          /*
+            Memory was already rendered
+            at 11.8s so the judge had time
+            to see the Demo Result.
+
+            Now only re-render the
+            experiments so the new
+            priority movement becomes
+            the second butterfly.
+          */
+          renderExps(
+            applied,
+            true
+          );
+
+          setJudgeStep(
+            judgeMemoryChanged
+              ? "Creator Memory updated the theory."
+              : "New evidence updated Creator Memory."
+          );
+
+          focusJudge(
+            "#experimentsPanel"
+          );
+        }
+      );
       judgeLater(runId, 17600, () => {
         setJudgeStep(judgeMemoryChanged ? "Same source. Same controls. New evidence. Different recommendation." : "Same source. Same controls. New evidence. Theory updated.");
         focusJudge("#experimentsPanel");
