@@ -1,0 +1,333 @@
+<!-- aha-build-id: bmubd7a6lewe748kd -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Creator Lab — Same source. One variable. Different strategy.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #1c1916;
+      --surface: #26221e;
+      --lift: #302b26;
+      --line: rgba(232, 220, 198, 0.12);
+      --text: #f3eadb;
+      --muted: #b7ab98;
+      --accent: #e8a35a;
+      --warn: #d46a4c;
+      --ok: #8fbf8a;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: "IBM Plex Sans", system-ui, sans-serif; }
+    body { min-height: 100vh; }
+    header.top {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding: 20px 28px 8px; gap: 16px;
+    }
+    .brand { font-family: "Instrument Serif", Georgia, serif; font-size: 28px; letter-spacing: -0.02em; }
+    .tag { color: var(--muted); font-size: 13px; }
+    .demo-banner {
+      margin: 0 28px 16px; padding: 10px 14px; border: 1px dashed var(--line);
+      border-radius: 10px; color: var(--muted); font-size: 12px;
+    }
+    .demo-banner strong { color: var(--accent); }
+    .lab {
+      display: grid;
+      grid-template-columns: 280px 1fr 280px;
+      gap: 16px;
+      padding: 0 28px 20px;
+    }
+    @media (max-width: 1100px) {
+      .lab { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    h2 { font-family: "Instrument Serif", Georgia, serif; font-size: 20px; font-weight: 400; margin: 0 0 12px; }
+    .video {
+      width: 100%; height: 140px; object-fit: cover; border-radius: 12px;
+      background: #3a342e;
+    }
+    .source-line { font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
+    .timeline { display: flex; gap: 4px; height: 8px; margin-bottom: 12px; }
+    .tick { flex: 1; background: #3d372f; border-radius: 4px; cursor: pointer; }
+    .tick.on { background: var(--accent); }
+    .moments, .tr { font-size: 12px; color: var(--muted); line-height: 1.55; }
+    .moments button, .tr button {
+      display: block; width: 100%; text-align: left; background: transparent;
+      border: 0; color: inherit; padding: 6px 0; cursor: pointer; font: inherit;
+    }
+    .moments button:hover { color: var(--text); }
+    .exps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 900px) { .exps { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--lift);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      min-height: 280px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card.branching { animation: branch 0.7s ease; }
+    @keyframes branch {
+      0% { transform: translateX(0); opacity: 1; }
+      40% { transform: translateX(-8px); opacity: 0.45; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+    .card.flash .chg { background: rgba(232,163,90,0.18); }
+    .kicker { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--accent); }
+    .id { float: right; font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted); }
+    .hook { font-family: "Instrument Serif", Georgia, serif; font-size: 22px; margin: 10px 0 12px; line-height: 1.2; }
+    .meta { font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .meta b { color: var(--text); font-weight: 500; }
+    .chg { transition: background 0.4s; border-radius: 6px; padding: 1px 4px; }
+    .ctrl label { display: block; font-size: 11px; color: var(--muted); margin: 10px 0 6px; letter-spacing: 0.08em; text-transform: uppercase; }
+    select {
+      width: 100%; background: #1c1916; color: var(--text); border: 1px solid var(--line);
+      border-radius: 10px; padding: 10px; font: inherit;
+    }
+    .butterfly {
+      width: 100%; margin-top: 18px; padding: 16px 12px;
+      background: var(--accent); color: #1c1916; border: 0; border-radius: 999px;
+      font-weight: 600; font-size: 15px; cursor: pointer; font-family: inherit;
+    }
+    .butterfly:hover { filter: brightness(1.06); }
+    .locked { font-size: 12px; color: var(--muted); margin-top: 10px; }
+    .lower { padding: 0 28px 28px; display: grid; gap: 16px; }
+    .why { display: none; }
+    .why.show { display: block; animation: rise 0.5s ease; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .ba { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: start; }
+    @media (max-width: 700px) { .ba { grid-template-columns: 1fr; } }
+    .arrow { align-self: center; color: var(--accent); font-size: 22px; }
+    .mem-item { font-size: 14px; line-height: 1.55; color: var(--muted); }
+    .pill { display: inline-block; font-size: 10px; letter-spacing: 0.1em; border: 1px solid var(--accent); color: var(--accent); padding: 2px 8px; border-radius: 999px; margin-right: 8px; }
+    .stage { font-family: "Instrument Serif", Georgia, serif; font-size: 18px; color: var(--accent); min-height: 28px; padding: 0 28px 8px; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <div class="brand">Creator Lab</div>
+      <div class="tag">Same source. One changed variable. Different strategy.</div>
+    </div>
+    <div class="tag" id="stageLine">One source.</div>
+  </header>
+  <div class="demo-banner"><strong>Demo Data</strong> — seeded coding-project source and historical memory. Entered results (none yet) would appear separately from this sample history.</div>
+  <p class="stage" id="stageBig">One source.</p>
+  <div class="lab">
+    <section class="panel" id="source">
+      <h2>Source</h2>
+      <img class="video" alt="laptop on a desk showing a weather app coding session in a warm studio" src="source.jpg" />
+      <p class="source-line">Weather App Build · 04:12 · coding session</p>
+      <div class="timeline" id="timeline"></div>
+      <div class="moments" id="moments"></div>
+      <h2 style="margin-top:16px">Transcript</h2>
+      <div class="tr" id="tr"></div>
+    </section>
+    <section>
+      <h2>Experiments</h2>
+      <div class="exps" id="exps"></div>
+    </section>
+    <aside class="panel ctrl">
+      <h2>Lab control</h2>
+      <label>Audience</label>
+      <select id="audience">
+        <option value="beginners">Beginners</option>
+        <option value="experienced">Experienced Developers</option>
+      </select>
+      <label>Goal</label>
+      <select id="goal">
+        <option value="views">Views</option>
+        <option value="qualified">Qualified Users</option>
+      </select>
+      <label>Platform</label>
+      <select id="platform">
+        <option value="tiktok">TikTok</option>
+        <option value="youtube">YouTube</option>
+      </select>
+      <p class="locked">Change exactly one variable, then run the butterfly.</p>
+      <button class="butterfly" id="go" type="button">🦋 Change one variable</button>
+    </aside>
+  </div>
+  <div class="lower">
+    <section class="panel why" id="why">
+      <h2>Why it changed</h2>
+      <div class="ba">
+        <div id="before"></div>
+        <div class="arrow">→</div>
+        <div id="after"></div>
+      </div>
+      <p class="mem-item" id="reason" style="margin-top:16px"></p>
+    </section>
+    <section class="panel">
+      <h2>Creator Memory</h2>
+      <p><span class="pill">DEMO DATA</span> Observed from 5 previous coding experiments</p>
+      <p class="mem-item">Result-first hooks produced 18% stronger three-second retention than failure-first hooks.</p>
+      <p class="mem-item" id="memNext">Based on your previous experiments, Creator Lab is prioritizing the result-first opening.</p>
+    </section>
+  </div>
+  <script>
+    const SOURCE = {
+      id: "weather-app-build",
+      moments: [
+        { t: "00:08", label: "Blank screen, first save" },
+        { t: "00:43", label: "Working weather UI reveal" },
+        { t: "01:12", label: "Pause before hitting run" },
+        { t: "02:11", label: "API decision breaks request flow" },
+        { t: "03:02", label: "Fix lands, quiet satisfaction" }
+      ],
+      transcript: [
+        { t: "00:08", text: "Okay, empty project. I’m just going to try to fetch weather." },
+        { t: "00:43", text: "Wait— it actually rendered. I finally got the app working." },
+        { t: "01:12", text: "Don’t refresh yet. If this works I’m going to scream." },
+        { t: "02:11", text: "This API decision broke the entire request flow. CORS, then the key, then the path." },
+        { t: "03:02", text: "Okay. That’s the bug. That’s the whole video." }
+      ]
+    };
+
+    const VARIANTS = {
+      beginners: {
+        fingerprint: "EXP-7B31",
+        cards: [
+          { k: "TRANSFORMATION", hyp: "Showing the finished result immediately will increase early retention.", ev: "Strongest visual reveal at 00:43.", mom: "00:43–00:58", hook: "I finally built my first working weather app.", beh: "Reduce first-three-second drop.", met: "3s retention + average watch time" },
+          { k: "CURIOSITY", hyp: "Opening before the result holds beginners through the build.", ev: "Pause before run at 01:12.", mom: "01:12–01:28", hook: "Don’t refresh yet.", beh: "Increase hold through the first payoff.", met: "Average watch time" },
+          { k: "FAILURE", hyp: "A small break moment humanizes the tutorial.", ev: "Blank first save at 00:08.", mom: "00:08–00:22", hook: "This started as an empty file.", beh: "Build identification with the creator.", met: "Follows" }
+        ]
+      },
+      experienced: {
+        fingerprint: "EXP-4F19",
+        cards: [
+          { k: "FAILURE", hyp: "Senior viewers stay for the implementation decision, not the pretty UI.", ev: "Self-contained technical explanation at 02:11.", mom: "02:11–02:29", hook: "This API decision broke the entire request flow.", beh: "Qualified viewers continue past the hook.", met: "Qualified clicks + completion" },
+          { k: "CURIOSITY", hyp: "Hide the fix; show the broken request first.", ev: "CORS / path failure cluster at 02:11.", mom: "02:11–02:40", hook: "The request never even left the browser.", beh: "Comments from other engineers.", met: "Comments + follows" },
+          { k: "TRANSFORMATION", hyp: "A quiet fix landing still works if the cost is visible first.", ev: "Fix lands at 03:02 after the break.", mom: "03:02–03:18", hook: "That’s the bug. That’s the whole video.", beh: "Completion among experienced viewers.", met: "Completion rate" }
+        ]
+      }
+    };
+
+    const WHY = {
+      experienced: "Experienced developers are more likely to value the implementation decision and debugging insight than the finished-app reveal. The source contains a self-contained technical explanation at 02:11, so Creator Lab promoted that moment.",
+      beginners: "Beginners respond to a finished, understandable result. The strongest visual reveal is at 00:43, so Creator Lab returned to a transformation-first opening."
+    };
+
+    let applied = { audience: "beginners", goal: "views", platform: "tiktok" };
+    let pendingVar = null;
+
+    function fingerprint(state) {
+      return state.audience === "experienced" ? "EXP-4F19" : "EXP-7B31";
+    }
+
+    function renderSource() {
+      document.getElementById("timeline").innerHTML = SOURCE.moments.map((_, i) =>
+        `<div class="tick${i===1?" on":""}" data-i="${i}"></div>`).join("");
+      document.getElementById("moments").innerHTML = SOURCE.moments.map(m =>
+        `<button type="button"><b>${m.t}</b> · ${m.label}</button>`).join("");
+      document.getElementById("tr").innerHTML = SOURCE.transcript.map(s =>
+        `<button type="button"><b>${s.t}</b> ${s.text}</button>`).join("");
+    }
+
+    function cardHtml(c, fp, highlight) {
+      const h = highlight ? " chg" : "";
+      return `<article class="card" data-k="${c.k}">
+        <span class="id">${fp}</span>
+        <div class="kicker">${c.k}</div>
+        <div class="hook${h}">“${c.hook}”</div>
+        <div class="meta">
+          <div><b>Hypothesis</b> <span class="${h}">${c.hyp}</span></div>
+          <div><b>Evidence</b> ${c.ev}</div>
+          <div><b>Moment</b> <span class="${h}">${c.mom}</span></div>
+          <div><b>Expected behaviour</b> ${c.beh}</div>
+          <div><b>Judge by</b> ${c.met}</div>
+        </div>
+      </article>`;
+    }
+
+    function renderExps(state, animate) {
+      const pack = VARIANTS[state.audience];
+      const fp = fingerprint(state);
+      const root = document.getElementById("exps");
+      root.innerHTML = pack.cards.map(c => cardHtml(c, fp, animate)).join("");
+      if (animate) {
+        [...root.children].forEach(el => {
+          el.classList.add("branching", "flash");
+          setTimeout(() => el.classList.remove("branching"), 700);
+        });
+      }
+    }
+
+    function setStage(t) {
+      document.getElementById("stageLine").textContent = t;
+      document.getElementById("stageBig").textContent = t;
+    }
+
+    function showWhy(from, to) {
+      const b = VARIANTS[from].cards[0];
+      const a = VARIANTS[to].cards[0];
+      document.getElementById("before").innerHTML =
+        `<div class="kicker">Before · ${from}</div><p class="hook" style="font-size:18px">“${b.hook}”</p><p class="meta">${b.k} · ${b.mom}</p>`;
+      document.getElementById("after").innerHTML =
+        `<div class="kicker">After · ${to}</div><p class="hook" style="font-size:18px">“${a.hook}”</p><p class="meta">${a.k} · ${a.mom}</p>`;
+      document.getElementById("reason").textContent = WHY[to];
+      document.getElementById("why").classList.add("show");
+      const mem = document.getElementById("memNext");
+      mem.textContent = to === "experienced"
+        ? "Your demo history still favors result-first for beginners; this branch overrides it because audience changed."
+        : "Based on your previous experiments, Creator Lab is prioritizing the result-first opening.";
+    }
+
+    ["audience","goal","platform"].forEach(id => {
+      document.getElementById(id).addEventListener("change", () => {
+        const next = {
+          audience: document.getElementById("audience").value,
+          goal: document.getElementById("goal").value,
+          platform: document.getElementById("platform").value
+        };
+        const changed = ["audience","goal","platform"].filter(k => next[k] !== applied[k]);
+        if (changed.length > 1) {
+          // revert extras — only one variable
+          ["audience","goal","platform"].forEach(k => {
+            if (k !== changed[0]) document.getElementById(k).value = applied[k];
+          });
+          next.audience = document.getElementById("audience").value;
+          next.goal = document.getElementById("goal").value;
+          next.platform = document.getElementById("platform").value;
+        }
+        pendingVar = ["audience","goal","platform"].find(k => next[k] !== applied[k]) || null;
+      });
+    });
+
+    document.getElementById("go").addEventListener("click", () => {
+      const next = {
+        audience: document.getElementById("audience").value,
+        goal: document.getElementById("goal").value,
+        platform: document.getElementById("platform").value
+      };
+      const changed = ["audience","goal","platform"].filter(k => next[k] !== applied[k]);
+      if (changed.length !== 1) {
+        setStage("Pick exactly one variable, then press the butterfly.");
+        return;
+      }
+      const from = applied.audience;
+      setStage("🦋 Change one variable");
+      setTimeout(() => {
+        applied = next;
+        renderExps(applied, true);
+        setStage("Three experiments. Different strategy.");
+        showWhy(from, applied.audience);
+        setTimeout(() => setStage("Same source. One changed variable. Different strategy."), 1600);
+      }, 280);
+    });
+
+    renderSource();
+    renderExps(applied, false);
+    setTimeout(() => setStage("Three experiments."), 2800);
+  </script>
+</body>
+</html>
