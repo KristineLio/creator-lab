@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubff1ga54jw9prd -->
+<!-- aha-build-id: bmubfpr36jm8shanc -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -267,22 +267,39 @@
       const profile = PLATFORM[state.platform] || PLATFORM.tiktok;
       function platformHook(kind, selected, fallback) {
         const core = selected?.description || fallback;
+        const failureLike = kind === "FAILURE";
+        const insightLike = ["INSIGHT", "EXPLANATION", "SOURCE BEAT", "PAYOFF"].includes(kind);
         if (state.platform === "tiktok") {
           if (kind === "TRANSFORMATION") return core;
           if (kind === "CURIOSITY") return "Wait — " + core;
+          if (failureLike) return core;
+          if (insightLike) return "The part worth noticing: " + core;
           return core;
         }
         if (state.platform === "instagram") {
           if (kind === "TRANSFORMATION") return core + " — result first.";
           if (kind === "CURIOSITY") return core + " — then the reveal.";
-          return core + " — save the fix.";
+          if (failureLike) return core + " — save the fix.";
+          if (insightLike) return core + " — save the takeaway.";
+          return core;
         }
         if (state.platform === "youtube") {
           if (kind === "TRANSFORMATION") return "Here’s the result — and how it happened: " + core;
           if (kind === "CURIOSITY") return "What happened next changed the build: " + core;
-          return "Here’s where the build went wrong: " + core;
+          if (failureLike) return "Here’s where the build went wrong: " + core;
+          if (insightLike) return "The key takeaway from this build: " + core;
+          return core;
         }
         return core;
+      }
+      function fallbackStrategyKind(moment) {
+        const type = String(moment?.type || "").toLowerCase();
+        if (type.includes("insight")) return "INSIGHT";
+        if (type.includes("explanation")) return "EXPLANATION";
+        if (type.includes("payoff")) return "PAYOFF";
+        if (type.includes("statement")) return "SOURCE BEAT";
+        if (type.includes("reveal")) return "PAYOFF";
+        return "SOURCE BEAT";
       }
       function windowFor(moment) {
         if (!moment) return "—";
@@ -291,14 +308,15 @@
       }
       function card(kind, moment, hypothesis, fallbackHook) {
         const missingFailure = kind === "FAILURE" && !failureMoment;
-        const selected = missingFailure ? pick(["explanation", "insight"], reveal) : moment;
+        const selected = missingFailure ? (findMoment(["explanation", "insight", "statement", "payoff"]) || reveal) : moment;
+        const strategyKind = missingFailure ? fallbackStrategyKind(selected) : kind;
         return {
-          k: missingFailure ? "INSIGHT" : kind,
-          hyp: missingFailure ? "No clear failure beat exists in this source, so Creator Lab will not invent one. It uses the strongest defensible insight instead." : hypothesis,
+          k: strategyKind,
+          hyp: missingFailure ? "No clear failure beat exists in this source, so Creator Lab will not invent one. It uses the strongest defensible alternative source beat instead." : hypothesis,
           ev: selected ? ("At " + fmt(selected.start) + " — " + (selected.evidence || selected.description)) : "No matching source moment.",
           mom: selected ? windowFor(selected) : "—",
           start: selected ? selected.start : 0,
-          hook: platformHook(missingFailure ? "INSIGHT" : kind, selected, fallbackHook),
+          hook: platformHook(strategyKind, selected, fallbackHook),
           beh: views ? profile.viewsBehavior : profile.qualifiedBehavior,
           met: views ? profile.viewsMetric : profile.qualifiedMetric,
           note: missingFailure
@@ -316,7 +334,7 @@
 
     const WHY = {
       audience: {
-        experienced: "Audience changed. Experienced viewers get more from a debugging/insight moment that actually exists in this source.",
+        experienced: "Audience changed. Experienced viewers are given the most technically specific or information-dense beat this source actually supports, rather than inventing technical evidence.",
         beginners: "Audience changed. Beginners need a finished, understandable result from this source’s reveal beat."
       },
       goal: {
@@ -460,8 +478,36 @@
       });
     }
 
+    function analysisCacheKey(title, duration, lines) {
+      return "creatorlab-analysis-" + sourceFingerprint({ title, duration, transcript: lines });
+    }
+    function readAnalysisCache(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.moments) && parsed.moments.length) return parsed;
+      } catch {}
+      return null;
+    }
+    function writeAnalysisCache(key, analysis) {
+      try { localStorage.setItem(key, JSON.stringify(analysis)); } catch {}
+    }
+    function clearCurrentAnalysisCache() {
+      const v = document.getElementById("vid");
+      const lines = parseTranscript(document.getElementById("transcriptIn").value);
+      if (!lines.length) return;
+      const title = (document.getElementById("file").files[0] && document.getElementById("file").files[0].name) || "Uploaded source";
+      const duration = (v.duration && isFinite(v.duration)) ? v.duration : (lines[lines.length - 1].t + 20);
+      try { localStorage.removeItem(analysisCacheKey(title, duration, lines)); } catch {}
+    }
     async function analyzeSource(title, duration, lines) {
       const payload = { title, duration, transcript: lines };
+      const cacheKey = analysisCacheKey(title, duration, lines);
+      const cached = readAnalysisCache(cacheKey);
+      if (cached) {
+        return { ...cached, analysisMode: cached.analysisMode || "Cached source analysis" };
+      }
       try {
         const res = await fetch(ANALYZE_URL, {
           method: "POST",
@@ -472,16 +518,19 @@
           const json = await res.json();
           if (json && json.ok !== false && Array.isArray(json.moments) && json.moments.length) {
             json.analysisMode = "SkyCastle server analysis · transcript grounded";
+            writeAnalysisCache(cacheKey, json);
             return json;
           }
         }
-      } catch (e) { /* static hosts have no /api */ }
-      return {
+      } catch (e) {}
+      const fallback = {
         title, duration,
-        summary: "Local transcript parse. Live AI runs only when /api/analyze-source is available on SkyCastle.",
+        summary: "Local transcript parse. Live AI runs only when the secure analysis endpoint is available.",
         moments: localMoments(lines),
-        analysisMode: "Local transcript parse (GitHub Pages / static host — demo-safe, no secret, not visual analysis)"
+        analysisMode: "Local transcript parse · static fallback"
       };
+      writeAnalysisCache(cacheKey, fallback);
+      return fallback;
     }
 
     async function runAnalysis(modeLabel, lines, title, duration) {
@@ -556,7 +605,10 @@
       const mode = v.src ? "Transcript you provided (video preview is local; audio was not auto-transcribed)" : "Transcript only";
       runAnalysis(mode, lines, title, dur);
     });
-    document.getElementById("retryBtn").addEventListener("click", () => document.getElementById("analyzeBtn").click());
+    document.getElementById("retryBtn").addEventListener("click", () => {
+      clearCurrentAnalysisCache();
+      document.getElementById("analyzeBtn").click();
+    });
 
     ["audience", "goal", "platform"].forEach(id => document.getElementById(id).addEventListener("change", enforceOne));
     document.getElementById("go").addEventListener("click", () => {
