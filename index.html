@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubic4s061xu9su2 -->
+<!-- aha-build-id: bmubjdk4h09d6o5xi -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -82,6 +82,10 @@
     .ctrl label { display: block; font-size: 11px; color: var(--muted); margin: 10px 0 6px; letter-spacing: 0.08em; text-transform: uppercase; }
     select { width: 100%; background: #1c1916; color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: inherit; }
     .butterfly { width: 100%; margin-top: 18px; padding: 16px 12px; background: var(--accent); color: #1c1916; border: 0; border-radius: 999px; font-weight: 600; font-size: 15px; cursor: pointer; font-family: inherit; }
+    .butterfly:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
     .locked { font-size: 12px; color: var(--muted); margin-top: 10px; }
     .lower { padding: 0 28px 28px; display: grid; gap: 16px; }
     .why { display: none; }
@@ -166,6 +170,9 @@
       background: rgba(232, 163, 90, 0.08);
       color: var(--muted);
       font-size: 12px;
+    }
+    .judge-ribbon[hidden] {
+      display: none !important;
     }
     .judge-ribbon > span {
       color: var(--accent);
@@ -383,9 +390,11 @@
       <p class="mode" id="analysisMode">Analysis source: Demo transcript (built-in)</p>
       <p class="proc" id="proc"></p>
       <p class="err" id="err"></p>
-      <label class="mode" for="transcriptIn">Transcript fallback (paste if the video has no auto-transcript)</label>
-      <textarea class="tr-in" id="transcriptIn" placeholder="00:08 empty project…
-00:43 it rendered…"></textarea>
+      <label class="mode" for="transcriptIn">Timestamped transcript / source notes</label>
+      <p class="meta">For silent footage, describe the visible event at each timestamp.</p>
+      <textarea class="tr-in" id="transcriptIn" placeholder="00:20 Connection error appears...
+00:48 Weather loads successfully...
+01:43 App switches into dark mode..."></textarea>
       <div class="timeline" id="timeline"></div>
       <div class="moments" id="moments"></div>
       <h2 style="margin-top:16px">Transcript</h2>
@@ -552,6 +561,8 @@
     let judgeDemoRunId = 0;
     let judgeRunning = false;
     let judgeMemoryChanged = false;
+    let transcriptOrigin = "demo";
+    let sourceReady = true;
     function activeUserMemory() {
       return judgeMode ? judgeDemoMemory : userMemory;
     }
@@ -560,6 +571,51 @@
       return entry.isDemo ? "DEMO DATA" : "YOUR DATA";
     }
 
+    function demoTranscriptText() {
+      return DEMO_TRANSCRIPT.map(s => fmt(s.t) + " " + s.text).join("\n");
+    }
+    function setSourceReady(ready) {
+      sourceReady = ready;
+      const go = document.getElementById("go");
+      const record = document.getElementById("recordResultBtn");
+      if (go) {
+        go.disabled = !ready || judgeRunning;
+      }
+      if (record) {
+        record.disabled = !ready || judgeMode || recordResultLocked;
+      }
+    }
+    function renderSourcePending() {
+      const root = document.getElementById("exps");
+      root.innerHTML = `
+        <div class="panel" style="grid-column: 1 / -1; min-height: 180px; display: grid; place-items: center; text-align: center;">
+          <div>
+            <div class="kicker">NEW SOURCE LOADED</div>
+            <p class="hook" style="max-width: 540px; margin-left: auto; margin-right: auto;">Add timestamped transcript or source notes, then analyze.</p>
+            <p class="meta">Previous source experiments were cleared so they cannot be mistaken for this video.</p>
+          </div>
+        </div>
+      `;
+    }
+    function updateTranscriptState() {
+      const input = document.getElementById("transcriptIn");
+      const value = String(input.value || "").trim();
+      if (!value) {
+        transcriptOrigin = "empty";
+      } else if (value === demoTranscriptText().trim()) {
+        transcriptOrigin = "demo";
+      } else {
+        transcriptOrigin = "user";
+      }
+      const lines = parseTranscript(input.value);
+      const analyze = document.getElementById("analyzeBtn");
+      if (analyze) {
+        const hasVideo = !!document.getElementById("vid").src;
+        if (hasVideo && !sourceReady) {
+          analyze.disabled = lines.length === 0;
+        }
+      }
+    }
     function fmt(s) {
       s = Math.max(0, Math.floor(s || 0));
       return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -754,11 +810,17 @@
       return metric.label + ": " + value.toFixed(1);
     }
 
+    function momentSelectionScore(moment) {
+      return (Number(moment?.narrativeStrength) || 0) * 0.45 +
+        (Number(moment?.hookPotential) || 0) * 0.4 +
+        (Number(moment?.informationDensity) || 0) * 0.15;
+    }
     function findMoment(types) {
       const pool = sourceDoc.moments || [];
       for (const type of types) {
-        const hit = pool.find(moment => String(moment.type || "").toLowerCase().includes(type));
-        if (hit) return hit;
+        const matches = pool.filter(moment => String(moment.type || "").toLowerCase().includes(type));
+        if (!matches.length) continue;
+        return matches.slice().sort((a, b) => momentSelectionScore(b) - momentSelectionScore(a) || a.start - b.start)[0];
       }
       return null;
     }
@@ -772,7 +834,7 @@
 
     function packFor(state) {
       const moments = sourceDoc.moments || [];
-      const reveal = pick(["reveal", "payoff", "before"], moments[0]);
+      const reveal = pick(["transformation", "payoff", "reveal", "before"], moments[0]);
       const curiosityMoment = pick(["curiosity", "surprise", "statement", "emotion"], moments[1] || reveal);
       const failureMoment = findMoment(["failure", "mistake", "conflict", "insight"]);
       const views = state.goal === "views";
@@ -990,6 +1052,10 @@
       return Number.isFinite(value) ? value : null;
     }
     function recordCreatorResult() {
+      if (!sourceReady) {
+        document.getElementById("memoryStatus").textContent = "Analyze the current source before recording experiment results.";
+        return;
+      }
       const experimentId = document.getElementById("memoryExperiment").value;
       const experiment = currentExperiments().find(card => card.experimentId === experimentId);
       if (!experiment) return;
@@ -1160,26 +1226,49 @@
       }).filter(Boolean);
     }
 
-    function localMoments(lines) {
-      const keys = [
-        [/broke|error|fail|cors|bug/, "failure"],
-        [/rendered|working|finally|done|built/, "reveal"],
-        [/don.?t|wait|yet|if this works/, "curiosity"],
-        [/empty|blank|start/, "before/after"],
-        [/that.?s the/, "payoff"]
-      ];
-      return lines.slice(0, 8).map((s, i) => {
-        const hit = keys.find(k => k[0].test(s.text.toLowerCase()));
-        const type = hit ? hit[1] : "statement";
-        return {
-          id: "M" + String(i + 1).padStart(2, "0"),
-          start: s.t, end: s.t + 12, type,
-          description: s.text.slice(0, 80),
-          evidence: s.text,
-          why: "Taken from the pasted transcript at " + fmt(s.t) + ".",
-          narrativeStrength: 0.7, hookPotential: type === "reveal" ? 0.85 : 0.5, informationDensity: 0.6
-        };
-      });
+    function classifyLocalMoment(text) {
+      const t = String(text || "").toLowerCase();
+      if (/broke|broken|error|fail|failed|failure|cors|bug|problem|cannot|can't|unable|timeout|disconnect|connection|crash|wrong/.test(t)) {
+        return { type: "failure", narrativeStrength: 0.94, hookPotential: 0.86, informationDensity: 0.82 };
+      }
+      if (/switch(?:es|ed|ing)?\s+(?:into|to)|dark mode|light mode|theme changed|theme switches|transform(?:s|ed|ing)?|before.?after/.test(t)) {
+        return { type: "transformation", narrativeStrength: 0.96, hookPotential: 0.92, informationDensity: 0.7 };
+      }
+      if (/setting up|sets up|about to|before the|search begins|begins changing|opens again|appearance-related|appearance controls|visible ui change|next/.test(t)) {
+        return { type: "curiosity", narrativeStrength: 0.86, hookPotential: 0.94, informationDensity: 0.58 };
+      }
+      if (/wait|don't|dont|yet|if this works|search|begins|opens|continues/.test(t)) {
+        return { type: "curiosity", narrativeStrength: 0.76, hookPotential: 0.8, informationDensity: 0.5 };
+      }
+      if (/final|polished|complete|completed|finished|successfully|recovers?|recovered|loads successfully|working|works|rendered|fully visible/.test(t)) {
+        return { type: "payoff", narrativeStrength: 0.86, hookPotential: 0.78, informationDensity: 0.62 };
+      }
+      if (/blank|empty|original|initial|starting state|starts? with/.test(t)) {
+        return { type: "before/after", narrativeStrength: 0.7, hookPotential: 0.58, informationDensity: 0.52 };
+      }
+      return { type: "statement", narrativeStrength: 0.58, hookPotential: 0.48, informationDensity: 0.58 };
+    }
+    function localMoments(lines, duration) {
+      const limit = Number.isFinite(duration) ? duration : Infinity;
+      return lines
+        .filter(line => Number.isFinite(line.t) && line.t >= 0 && line.t <= limit + 1)
+        .slice(0, 40)
+        .map((s, i) => {
+          const profile = classifyLocalMoment(s.text);
+          const end = Math.min(Number.isFinite(duration) ? duration : s.t + 12, s.t + 12);
+          return {
+            id: "M" + String(i + 1).padStart(2, "0"),
+            start: s.t,
+            end,
+            type: profile.type,
+            description: s.text.slice(0, 110),
+            evidence: s.text,
+            why: "Taken from the timestamped source notes at " + fmt(s.t) + ".",
+            narrativeStrength: profile.narrativeStrength,
+            hookPotential: profile.hookPotential,
+            informationDensity: profile.informationDensity
+          };
+        });
     }
 
     function analysisCacheKey(title, duration, lines) {
@@ -1233,7 +1322,7 @@
       const fallback = {
         title, duration,
         summary: "Local transcript parse. Live AI runs only when the secure analysis endpoint is available.",
-        moments: localMoments(lines),
+        moments: localMoments(lines, duration),
         analysisMode: "Local transcript parse · static fallback"
       };
       return fallback;
@@ -1258,11 +1347,13 @@
           doc.analysisMode = modeLabel + " · " + doc.analysisMode;
         }
         sourceDoc = doc;
+        setSourceReady(true);
         renderSourcePanel();
         renderExps(applied, true);
         proc.textContent = "Ready — experiments use this source.";
         setStage("Three experiments from this source.");
       } catch (e) {
+        setSourceReady(false);
         proc.textContent = "";
         err.textContent = "Couldn’t analyze that source. Your video is still here. Retry, paste a transcript, or load the demo.";
         document.getElementById("retryBtn").hidden = false;
@@ -1275,7 +1366,9 @@
       document.getElementById("poster").classList.remove("hide");
       document.getElementById("vid").classList.remove("on");
       document.getElementById("vid").removeAttribute("src");
-      document.getElementById("transcriptIn").value = DEMO_TRANSCRIPT.map(s => fmt(s.t) + " " + s.text).join("\n");
+      document.getElementById("transcriptIn").value = demoTranscriptText();
+      transcriptOrigin = "demo";
+      setSourceReady(true);
       document.getElementById("err").textContent = "";
       document.getElementById("proc").textContent = "";
       renderSourcePanel();
@@ -1283,6 +1376,7 @@
       renderMemoryFields();
       renderCreatorMemory();
       populateMemoryExperimentSelect();
+      updateTranscriptState();
       setStage("One source.");
     }
 
@@ -1295,25 +1389,52 @@
       v.src = videoUrl;
       v.classList.add("on");
       document.getElementById("poster").classList.add("hide");
+      const transcript = document.getElementById("transcriptIn");
+      if (transcriptOrigin === "demo" || String(transcript.value || "").trim() === demoTranscriptText().trim()) {
+        transcript.value = "";
+        transcriptOrigin = "empty";
+      }
+      setSourceReady(false);
+      renderSourcePending();
+      document.getElementById("why").classList.remove("show");
+      document.getElementById("memoryDelta").textContent = "";
+      document.getElementById("proc").textContent = "";
+      document.getElementById("err").textContent = "";
+      document.getElementById("analysisMode").textContent = "Video loaded — add timestamped transcript or source notes, then Analyze. No silent auto-watch.";
       v.onloadedmetadata = () => {
         document.getElementById("srcMeta").textContent = f.name + " · " + fmt(v.duration);
       };
-      document.getElementById("analysisMode").textContent = "Video loaded — paste a transcript, then Analyze. (No silent auto-watch.)";
+      updateTranscriptState();
+      setStage("New source loaded. Waiting for source notes.");
     });
 
     document.getElementById("demoBtn").addEventListener("click", loadDemo);
     document.getElementById("analyzeBtn").addEventListener("click", () => {
       const v = document.getElementById("vid");
-      const lines = parseTranscript(document.getElementById("transcriptIn").value) ;
+      if (v.src && transcriptOrigin === "demo") {
+        document.getElementById("err").textContent = "This transcript belongs to the built-in Demo Source. Replace it with timestamped notes for the selected video before analyzing.";
+        return;
+      }
+      const lines = parseTranscript(document.getElementById("transcriptIn").value);
       if (!lines.length) {
         document.getElementById("err").textContent = "Paste a timestamped transcript (mm:ss line) so analysis isn’t faked from the picture alone.";
         return;
       }
+      if (v.duration && isFinite(v.duration)) {
+        const outside = lines.find(line => line.t > v.duration + 1);
+        if (outside) {
+          document.getElementById("err").textContent = "A timestamp (" + fmt(outside.t) + ") is outside this " + fmt(v.duration) + " video. Fix the source notes before analyzing.";
+          return;
+        }
+      }
       const title = (document.getElementById("file").files[0] && document.getElementById("file").files[0].name) || "Uploaded source";
       const dur = (v.duration && isFinite(v.duration)) ? v.duration : (lines[lines.length - 1].t + 20);
-      const mode = v.src ? "Transcript you provided (video preview is local; audio was not auto-transcribed)" : "Transcript only";
+      const mode = v.src
+        ? "Timestamped source notes you provided · video preview is local · audio was not auto-transcribed"
+        : "Timestamped transcript / source notes";
       runAnalysis(mode, lines, title, dur);
     });
+    document.getElementById("transcriptIn").addEventListener("input", updateTranscriptState);
     document.getElementById("retryBtn").addEventListener("click", () => {
       clearCurrentAnalysisCache();
       document.getElementById("analyzeBtn").click();
@@ -1321,6 +1442,10 @@
 
     ["audience", "goal", "platform"].forEach(id => document.getElementById(id).addEventListener("change", enforceOne));
     document.getElementById("go").addEventListener("click", () => {
+      if (!sourceReady) {
+        setStage("Analyze the new source first.");
+        return;
+      }
       const next = currentDraft();
       const changed = diffs(applied, next);
       if (changed.length !== 1) { setStage("Pick exactly one variable, then press the butterfly."); return; }
