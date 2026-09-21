@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubf073fvtff1xgp -->
+<!-- aha-build-id: bmubff1ga54jw9prd -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -230,26 +230,33 @@
       const raw = [String(doc.title || "").trim().toLowerCase(), String(Math.round(doc.duration || 0)), lines].join("|");
       return "SRC-" + hash32(raw).slice(0, 8);
     }
-    function fingerprint(state) {
-      const moments = (sourceDoc.moments || []).map(m => [m.id, m.start, m.end, m.type, m.description, m.evidence].join(":")).join(";");
-      const raw = [sourceDoc.id, moments, state.audience, state.goal, state.platform, "memory-demo-v1"].join("|");
+    function experimentFingerprint(state, card) {
+      const momentData = [card?.k || "", card?.start || 0, card?.mom || "", card?.hook || "", card?.hyp || "", card?.met || ""].join("|");
+      const raw = [sourceDoc.id, momentData, state.audience, state.goal, state.platform, "memory-demo-v1"].join("|");
       return "EXP-" + hash32(raw).slice(0, 8);
     }
 
-    function pick(types, fallback) {
+    function findMoment(types) {
       const pool = sourceDoc.moments || [];
-      for (const t of types) {
-        const hit = pool.find(m => (m.type || "").toLowerCase().includes(t));
+      for (const type of types) {
+        const hit = pool.find(moment => String(moment.type || "").toLowerCase().includes(type));
         if (hit) return hit;
       }
-      return fallback || pool[0];
+      return null;
+    }
+
+    function pick(types, fallback) {
+      const hit = findMoment(types);
+      if (hit) return hit;
+      if (fallback !== undefined) return fallback;
+      return (sourceDoc.moments || [])[0] || null;
     }
 
     function packFor(state) {
       const moments = sourceDoc.moments || [];
       const reveal = pick(["reveal", "payoff", "before"], moments[0]);
       const curiosityMoment = pick(["curiosity", "surprise", "statement", "emotion"], moments[1] || reveal);
-      const failureMoment = pick(["failure", "mistake", "conflict", "insight"], null);
+      const failureMoment = findMoment(["failure", "mistake", "conflict", "insight"]);
       const views = state.goal === "views";
       const beginner = state.audience === "beginners";
       const PLATFORM = {
@@ -258,6 +265,25 @@
         youtube: { shortWindow: 16, longWindow: 28, viewsBehavior: "Create a clear setup/payoff arc that sustains viewing.", viewsMetric: "Average view duration + completion", qualifiedBehavior: "Use deeper proof and explanation before asking for action.", qualifiedMetric: "Qualified clicks + completion", curiosityHypothesis: "Sustain curiosity across a longer setup/payoff sequence.", transformationHypothesis: "Use the result as a promise, then show how it happened.", failureHypothesis: "A technical failure becomes a story beat when the explanation is worth staying for." }
       };
       const profile = PLATFORM[state.platform] || PLATFORM.tiktok;
+      function platformHook(kind, selected, fallback) {
+        const core = selected?.description || fallback;
+        if (state.platform === "tiktok") {
+          if (kind === "TRANSFORMATION") return core;
+          if (kind === "CURIOSITY") return "Wait — " + core;
+          return core;
+        }
+        if (state.platform === "instagram") {
+          if (kind === "TRANSFORMATION") return core + " — result first.";
+          if (kind === "CURIOSITY") return core + " — then the reveal.";
+          return core + " — save the fix.";
+        }
+        if (state.platform === "youtube") {
+          if (kind === "TRANSFORMATION") return "Here’s the result — and how it happened: " + core;
+          if (kind === "CURIOSITY") return "What happened next changed the build: " + core;
+          return "Here’s where the build went wrong: " + core;
+        }
+        return core;
+      }
       function windowFor(moment) {
         if (!moment) return "—";
         const length = state.platform === "youtube" ? profile.longWindow : profile.shortWindow;
@@ -272,7 +298,7 @@
           ev: selected ? ("At " + fmt(selected.start) + " — " + (selected.evidence || selected.description)) : "No matching source moment.",
           mom: selected ? windowFor(selected) : "—",
           start: selected ? selected.start : 0,
-          hook: selected ? (selected.description || fallbackHook) : fallbackHook,
+          hook: platformHook(missingFailure ? "INSIGHT" : kind, selected, fallbackHook),
           beh: views ? profile.viewsBehavior : profile.qualifiedBehavior,
           met: views ? profile.viewsMetric : profile.qualifiedMetric,
           note: missingFailure
@@ -282,7 +308,7 @@
       const curiosity = card("CURIOSITY", curiosityMoment, profile.curiosityHypothesis, "Don’t skip this yet.");
       const failure = card("FAILURE", failureMoment, views ? profile.failureHypothesis : "Use concrete technical evidence from the failure to attract qualified viewers who care about the problem.", "This is where it broke.");
       if (!beginner && failureMoment) return [failure, transformation, curiosity];
-      if (!views) return [failure.note ? curiosity : failure, transformation, curiosity];
+      if (!views) return [failure, transformation, curiosity];
       if (state.platform === "youtube") return [curiosity, transformation, failure];
       if (state.platform === "instagram") return beginner ? [transformation, curiosity, failure] : [failure, transformation, curiosity];
       return [transformation, curiosity, failure];
@@ -295,7 +321,7 @@
       },
       goal: {
         qualified: "Goal changed. Qualified users need evidence and specificity from this source, not just a broad reveal.",
-        views: "Goal changed. Reach favors the most visually complete moment in this source and retention metrics."
+        views: "Goal changed. Reach favors the most immediately understandable payoff or curiosity beat supported by this source, then judges it with retention-focused metrics."
       },
       platform: {
         tiktok: "Platform changed. TikTok rewards an immediate reason to stay, so Creator Lab uses a tighter opening window and prioritizes 3-second retention.",
@@ -350,20 +376,22 @@
 
     function renderExps(state, animate) {
       const cards = packFor(state);
-      const fp = fingerprint(state);
       const root = document.getElementById("exps");
-      root.innerHTML = cards.map(c => `<article class="card">
-        <span class="id">${fp}</span>
-        <div class="kicker">${c.k}</div>
-        <div class="hook chg">“${c.hook}”</div>
+      root.innerHTML = cards.map(card => {
+        const experimentId = experimentFingerprint(state, card);
+        return `<article class="card">
+        <span class="id">${experimentId}</span>
+        <div class="kicker">${card.k}</div>
+        <div class="hook chg">“${card.hook}”</div>
         <div class="meta">
-          <div><b>Hypothesis</b> <span class="chg">${c.hyp}</span></div>
-          <div><b>Evidence from source</b> ${c.ev}</div>
-          <div><b>Moment</b> <span class="chg">${c.mom}</span></div>
-          <div><b>Expected behaviour</b> ${c.beh}</div>
-          <div><b>Judge by</b> ${c.met}</div>
+          <div><b>Hypothesis</b> <span class="chg">${card.hyp}</span></div>
+          <div><b>Evidence from source</b> ${card.ev}</div>
+          <div><b>Moment</b> <span class="chg">${card.mom}</span></div>
+          <div><b>Expected behaviour</b> ${card.beh}</div>
+          <div><b>Judge by</b> ${card.met}</div>
         </div>
-      </article>`).join("");
+      </article>`;
+      }).join("");
       if (animate) [...root.children].forEach(el => { el.classList.add("branching", "flash"); });
     }
 
@@ -390,12 +418,14 @@
     }
 
     function showWhy(from, to, key) {
-      const b = packFor(from)[0];
-      const a = packFor(to)[0];
+      const beforeCard = packFor(from)[0];
+      const afterCard = packFor(to)[0];
+      const beforeId = experimentFingerprint(from, beforeCard);
+      const afterId = experimentFingerprint(to, afterCard);
       document.getElementById("changedVar").textContent = "Changed variable: " + key[0].toUpperCase() + key.slice(1);
       document.getElementById("midArrow").textContent = "→ " + key + " →";
-      document.getElementById("before").innerHTML = `<div class="kicker">Before</div><p class="hook" style="font-size:18px">“${b.hook}”</p><p class="meta">${b.k} · ${b.mom}<br>${fingerprint(from)}</p>`;
-      document.getElementById("after").innerHTML = `<div class="kicker">After</div><p class="hook" style="font-size:18px">“${a.hook}”</p><p class="meta">${a.k} · ${a.mom}<br>${fingerprint(to)}</p>`;
+      document.getElementById("before").innerHTML = `<div class="kicker">Before</div><p class="hook" style="font-size:18px">“${beforeCard.hook}”</p><p class="meta">${beforeCard.k} · ${beforeCard.mom}<br>${beforeId}</p>`;
+      document.getElementById("after").innerHTML = `<div class="kicker">After</div><p class="hook" style="font-size:18px">“${afterCard.hook}”</p><p class="meta">${afterCard.k} · ${afterCard.mom}<br>${afterId}</p>`;
       document.getElementById("reason").textContent = WHY[key][to[key]];
       document.getElementById("why").classList.add("show");
     }
