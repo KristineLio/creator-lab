@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubho9vgjbjbfrb2 -->
+<!-- aha-build-id: bmubi6fmjy9vbxeke -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -187,8 +187,8 @@
     }
     .judge-focus {
       position: relative;
-      box-shadow: 0 0 0 2px rgba(232, 163, 90, 0.65), 0 0 28px rgba(232, 163, 90, 0.14);
-      transition: box-shadow 220ms ease;
+      box-shadow: 0 0 0 1px rgba(232, 163, 90, 0.52), 0 12px 34px rgba(0, 0, 0, 0.2);
+      transition: box-shadow 220ms ease, transform 220ms ease;
     }
     @media (max-width: 700px) {
       .judge-ribbon {
@@ -206,6 +206,149 @@
       font-family: "IBM Plex Mono", monospace;
       font-size: 9px;
       letter-spacing: 0.08em;
+    }
+    .changed-var {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .variable-shift {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--text);
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+    .variable-shift span { color: var(--accent); }
+    .priority-card {
+      border-color: rgba(232, 163, 90, 0.58);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    }
+    #sourcePanel, #experimentsPanel, #labControl, #why, #memoryPanel { scroll-margin-top: 72px; }
+    .judge-demo-result-row {
+      padding: 10px;
+      margin: 6px 0;
+      border: 1px solid rgba(232, 163, 90, 0.42);
+      border-radius: 10px;
+      background: rgba(232, 163, 90, 0.08);
+    }
+    body.judge-active .demo-banner,
+    body.judge-active #stageBig,
+    body.judge-active #sourcePanel .src-actions,
+    body.judge-active #sourcePanel .tr-in,
+    body.judge-active #sourcePanel label[for="transcriptIn"],
+    body.judge-active #sourcePanel .tr,
+    body.judge-active #sourcePanel h2[style] { display: none; }
+    body.judge-active #sourcePanel { padding: 14px; }
+    body.judge-active #sourcePanel .preview { height: 108px; }
+    body.judge-active #sourcePanel .source-line { font-size: 12px; margin: 8px 0 4px; }
+    body.judge-active #sourcePanel .mode { font-size: 10px; }
+    body.judge-active #sourcePanel .moments { max-height: 126px; }
+    body.judge-active #sourcePanel .timeline { margin-top: 8px; margin-bottom: 8px; }
+    body.judge-active .lab {
+      grid-template-columns: 230px minmax(0, 1fr) 225px;
+      gap: 14px;
+      padding: 0 24px 18px;
+      align-items: start;
+    }
+    body.judge-active .lower { padding: 0 24px 24px; }
+    @media (max-width: 1100px) {
+      body.judge-active .lab { grid-template-columns: 1fr; }
+    }
+    body.judge-active .judge-ribbon {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      margin: 0 24px 12px;
+      padding: 11px 14px;
+      background: rgba(28, 25, 22, 0.94);
+      backdrop-filter: blur(12px);
+      border-color: rgba(232, 163, 90, 0.48);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.24);
+    }
+    body.judge-active .judge-ribbon strong {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-size: 20px;
+      line-height: 1.15;
+      color: var(--text);
+    }
+    body.judge-active .judge-ribbon > span { font-size: 10px; }
+    body.judge-active header.top { padding: 12px 24px 8px; }
+    body.judge-active header.top #stageLine { display: none; }
+    body.judge-active .brand { font-size: 26px; }
+    body.judge-active .exps { gap: 10px; }
+    body.judge-active .card {
+      min-height: 250px;
+      padding: 15px;
+      transition: border-color 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+    }
+    body.judge-active .card .hook { font-size: 23px; line-height: 1.12; margin: 8px 0 10px; }
+    body.judge-active .card .meta { font-size: 12.5px; line-height: 1.48; }
+    body.judge-active .card .kicker { font-size: 11px; }
+    body.judge-active .priority-card {
+      transform: translateY(-3px);
+      border-color: rgba(232, 163, 90, 0.82);
+      box-shadow: 0 0 0 1px rgba(232, 163, 90, 0.16), 0 16px 38px rgba(0, 0, 0, 0.28);
+    }
+    body.judge-active .priority-label {
+      padding: 4px 8px;
+      font-size: 10px;
+      background: rgba(232, 163, 90, 0.18);
+    }
+    @keyframes priorityArrive {
+      0% { transform: translateY(2px) scale(0.985); box-shadow: 0 0 0 0 rgba(232, 163, 90, 0); }
+      45% { transform: translateY(-5px) scale(1.012); box-shadow: 0 0 0 3px rgba(232, 163, 90, 0.14); }
+      100% { transform: translateY(-3px) scale(1); box-shadow: 0 16px 38px rgba(0, 0, 0, 0.28); }
+    }
+    body.judge-active .priority-card.branching { animation: priorityArrive 720ms ease; }
+    body.judge-active #why { scroll-margin-top: 72px; }
+    body.judge-active #why h2 { font-size: 24px; }
+    body.judge-active #why .changed-var { font-size: 12px; margin-bottom: 14px; }
+    body.judge-active #why .variable-shift { font-size: 19px; }
+    body.judge-active #why .ba { gap: 18px; }
+    body.judge-active #why .hook { font-size: 21px !important; }
+    body.judge-active #why #reason { font-size: 15px; max-width: 900px; }
+    body.judge-active #memoryPanel .memory-entry-column { display: none; }
+    body.judge-active #memoryPanel .memory-grid { grid-template-columns: 1fr; }
+    body.judge-active #memoryPanel { scroll-margin-top: 72px; }
+    body.judge-active #memoryPanel h2 { font-size: 24px; }
+    body.judge-active #memoryObservation { padding: 16px; font-size: 14px; }
+    body.judge-active #memoryDelta:not(:empty) {
+      padding: 12px 14px;
+      border: 1px solid rgba(232, 163, 90, 0.4);
+      border-radius: 12px;
+      background: rgba(232, 163, 90, 0.09);
+      color: var(--text);
+      font-family: "Instrument Serif", Georgia, serif;
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    body.judge-active .memory-row { font-size: 13px; padding: 9px 0; }
+    body.judge-active .judge-demo-result-row { animation: resultArrive 520ms ease; }
+    @keyframes resultArrive {
+      from { opacity: 0; transform: translateY(7px); }
+      to { opacity: 1; transform: none; }
+    }
+    body.judge-active .memory-proof {
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.45;
+      border-color: rgba(232, 163, 90, 0.44);
+    }
+    body.judge-active .memory-proof-top { font-size: 10.5px; }
+    body.judge-active .memory-basis { color: var(--text); }
+    @media (max-width: 700px) {
+      body.judge-active .card .hook { font-size: 22px; }
+      body.judge-active .judge-ribbon strong { font-size: 18px; }
+      body.judge-active .judge-ribbon { margin: 0 12px 10px; }
+      body.judge-active #memoryDelta:not(:empty) { font-size: 18px; }
+      body.judge-active .lab,
+      body.judge-active .lower { padding-left: 12px; padding-right: 12px; }
     }
   </style>
 </head>
@@ -226,7 +369,7 @@
   <div class="demo-banner"><strong>Demo Data</strong> gives Creator Memory a clearly labeled cold start. Your recorded results stay in this browser for now. Source analysis can use a real file + transcript, or Load Demo Source.</div>
   <p class="stage" id="stageBig">One source.</p>
   <div class="lab">
-    <section class="panel">
+    <section class="panel" id="sourcePanel">
       <h2>Source</h2>
       <div class="src-actions">
         <label>Choose video<input id="file" type="file" accept="video/*" /></label>
@@ -248,11 +391,11 @@
       <h2 style="margin-top:16px">Transcript</h2>
       <div class="tr" id="tr"></div>
     </section>
-    <section>
+    <section id="experimentsPanel">
       <h2>Experiments</h2>
       <div class="exps" id="exps"></div>
     </section>
-    <aside class="panel ctrl">
+    <aside class="panel ctrl" id="labControl">
       <h2>Lab control</h2>
       <label>Audience</label>
       <select id="audience">
@@ -297,7 +440,7 @@
             <button type="button" id="clearMemoryBtn">Clear my results</button>
           </div>
         </div>
-        <div>
+        <div class="memory-entry-column">
           <h2>Record result</h2>
           <p class="mode">Add what happened after testing one experiment.</p>
           <div class="memory-form">
@@ -791,7 +934,7 @@
           <div>${esc(memoryProofText(card.memory))}</div>
         </div>` : "";
         const priority = index === 0 ? `<span class="priority-label">CURRENT PRIORITY</span>` : "";
-        return `<article class="card">
+        return `<article class="card ${index === 0 ? "priority-card" : ""}">
         ${priority}
         <span class="id">${esc(experimentId)}</span>
         <div class="kicker">${esc(card.k)}</div>
@@ -960,7 +1103,7 @@
         .slice(-6)
         .reverse();
       list.innerHTML = recent.map(entry => `
-        <div class="memory-row">
+        <div class="memory-row ${entry.isJudgeDemo ? "judge-demo-result-row" : ""}">
           <span class="pill">${esc(memoryBadge(entry))}</span>
           <b>${esc(entry.strategy)}</b>
           · ${esc(LABELS.platform[entry.platform] || entry.platform)}
@@ -996,8 +1139,13 @@
       const afterCard = packFor(to)[0];
       const beforeId = experimentFingerprint(from, beforeCard);
       const afterId = experimentFingerprint(to, afterCard);
-      document.getElementById("changedVar").textContent = "Changed variable: " + key[0].toUpperCase() + key.slice(1);
-      document.getElementById("midArrow").textContent = "→ " + key + " →";
+      const beforeValue = LABELS[key]?.[from[key]] || from[key];
+      const afterValue = LABELS[key]?.[to[key]] || to[key];
+      document.getElementById("changedVar").innerHTML = `
+        <span>Changed: ${esc(key[0].toUpperCase() + key.slice(1))}</span>
+        <strong class="variable-shift">${esc(beforeValue)} <span>→</span> ${esc(afterValue)}</strong>
+      `;
+      document.getElementById("midArrow").textContent = "→";
       document.getElementById("before").innerHTML = `<div class="kicker">Before</div><p class="hook" style="font-size:18px">“${esc(beforeCard.hook)}”</p><p class="meta">${esc(beforeCard.k)} · ${esc(beforeCard.mom)}<br>${esc(beforeId)}</p>`;
       document.getElementById("after").innerHTML = `<div class="kicker">After</div><p class="hook" style="font-size:18px">“${esc(afterCard.hook)}”</p><p class="meta">${esc(afterCard.k)} · ${esc(afterCard.mom)}<br>${esc(afterId)}</p>`;
       document.getElementById("reason").textContent = WHY[key][to[key]];
@@ -1228,7 +1376,7 @@
       const el = document.querySelector(selector);
       if (!el) return;
       el.classList.add("judge-focus");
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     function setJudgeStep(text) {
       const step = document.getElementById("judgeStep");
@@ -1253,6 +1401,7 @@
       clearJudgeFocus();
       judgeMode = true;
       judgeRunning = true;
+      document.body.classList.add("judge-active");
       judgeMemoryChanged = false;
       judgeDemoMemory = [];
       applied = { audience: "beginners", goal: "views", platform: "tiktok" };
@@ -1313,16 +1462,16 @@
       judgeDemoRunId += 1;
       const runId = judgeDemoRunId;
       prepareJudgeDemo();
-      focusJudge(".lab > section.panel");
+      focusJudge("#sourcePanel");
       judgeLater(runId, 2200, () => {
         setJudgeStep("Three experiments.");
-        focusJudge("#exps");
+        focusJudge("#experimentsPanel");
         renderExps(applied, true);
       });
       judgeLater(runId, 4800, () => {
         setJudgeStep("Change one variable.");
         document.getElementById("platform").value = "instagram";
-        focusJudge(".ctrl");
+        focusJudge("#labControl");
       });
       judgeLater(runId, 6100, () => {
         const from = { ...applied };
@@ -1347,11 +1496,11 @@
         renderCreatorMemory();
         renderExps(applied, true);
         setJudgeStep(judgeMemoryChanged ? "Creator Memory updated the theory." : "New evidence updated Creator Memory.");
-        focusJudge("#exps");
+        focusJudge("#experimentsPanel");
       });
       judgeLater(runId, 17600, () => {
         setJudgeStep(judgeMemoryChanged ? "Same source. Same controls. New evidence. Different recommendation." : "Same source. Same controls. New evidence. Theory updated.");
-        clearJudgeFocus();
+        focusJudge("#experimentsPanel");
         judgeRunning = false;
         clearJudgeTimers();
         syncJudgeControls();
@@ -1377,6 +1526,7 @@
       clearJudgeFocus();
       judgeRunning = false;
       judgeMode = false;
+      document.body.classList.remove("judge-active");
       judgeDemoMemory = [];
       applied = { audience: "beginners", goal: "views", platform: "tiktok" };
       document.getElementById("audience").value = applied.audience;
