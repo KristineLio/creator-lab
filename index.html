@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubeej34jsusquth -->
+<!-- aha-build-id: bmubel339zzuc4blt -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -167,8 +167,7 @@
     </section>
   </div>
   <script>
-    const LLM_URL = "https://skycastle.ai/api/capabilities/llm";
-    const LLM_AUTH = ""; // Public client must not contain a secret token.
+    const ANALYZE_URL = "/api/analyze-source";
 
     const DEMO_TRANSCRIPT = [
       { t: 8, text: "Okay, empty project. I’m just going to try to fetch weather." },
@@ -185,11 +184,11 @@
       summary: "A coding session that starts empty, reveals a working weather UI, then hits an API failure and explains the fix.",
       analysisMode: "Demo transcript (built-in)",
       moments: [
-        { id: "M01", start: 8, end: 22, type: "before/after", description: "Blank first save", evidence: "Empty project, first fetch attempt.", why: "Shows the before state.", visualStrength: 0.5, narrativeStrength: 0.7 },
-        { id: "M02", start: 43, end: 58, type: "reveal", description: "Working weather UI reveal", evidence: "Creator says it actually rendered.", why: "Strong finished-result beat.", visualStrength: 0.9, narrativeStrength: 0.85 },
-        { id: "M03", start: 72, end: 88, type: "curiosity", description: "Pause before hitting run", evidence: "Don’t refresh yet.", why: "Unresolved tension before payoff.", visualStrength: 0.4, narrativeStrength: 0.8 },
-        { id: "M04", start: 131, end: 149, type: "failure", description: "API decision breaks request flow", evidence: "CORS, then the key, then the path.", why: "Technical insight for experienced viewers.", visualStrength: 0.55, narrativeStrength: 0.95 },
-        { id: "M05", start: 182, end: 198, type: "payoff", description: "Fix lands", evidence: "That’s the bug. That’s the whole video.", why: "Quiet resolution.", visualStrength: 0.6, narrativeStrength: 0.7 }
+        { id: "M01", start: 8, end: 22, type: "before/after", description: "Blank first save", evidence: "Empty project, first fetch attempt.", why: "Shows the before state.", narrativeStrength: 0.7, hookPotential: 0.4, informationDensity: 0.5 },
+        { id: "M02", start: 43, end: 58, type: "reveal", description: "Working weather UI reveal", evidence: "Creator says it actually rendered.", why: "Strong finished-result beat.", narrativeStrength: 0.85, hookPotential: 0.9, informationDensity: 0.6 },
+        { id: "M03", start: 72, end: 88, type: "curiosity", description: "Pause before hitting run", evidence: "Don’t refresh yet.", why: "Unresolved tension before payoff.", narrativeStrength: 0.8, hookPotential: 0.75, informationDensity: 0.4 },
+        { id: "M04", start: 131, end: 149, type: "failure", description: "API decision breaks request flow", evidence: "CORS, then the key, then the path.", why: "Technical insight for experienced viewers.", narrativeStrength: 0.95, hookPotential: 0.7, informationDensity: 0.9 },
+        { id: "M05", start: 182, end: 198, type: "payoff", description: "Fix lands", evidence: "That’s the bug. That’s the whole video.", why: "Quiet resolution.", narrativeStrength: 0.7, hookPotential: 0.55, informationDensity: 0.5 }
       ],
       transcript: DEMO_TRANSCRIPT
     };
@@ -209,12 +208,23 @@
       return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
     }
 
+    function hash32(str) {
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h >>> 0).toString(16).padStart(8, "0").toUpperCase();
+    }
+    function sourceFingerprint(doc) {
+      const lines = (doc.transcript || []).map(s => String(s.t) + " " + String(s.text || "").trim().toLowerCase()).join("\n");
+      const raw = [String(doc.title || "").trim().toLowerCase(), String(Math.round(doc.duration || 0)), lines].join("|");
+      return "SRC-" + hash32(raw).slice(0, 8);
+    }
     function fingerprint(state) {
-      const ids = (sourceDoc.moments || []).map(m => m.id).join(",");
-      const raw = [sourceDoc.id, ids, state.audience, state.goal, state.platform, "demo-v1"].join("|");
-      let h = 0;
-      for (let i = 0; i < raw.length; i++) h = (h * 33 + raw.charCodeAt(i)) >>> 0;
-      return "EXP-" + h.toString(16).slice(-4).toUpperCase();
+      const moments = (sourceDoc.moments || []).map(m => [m.id, m.start, m.type, m.description].join(":")).join(";");
+      const raw = [sourceDoc.id, moments, state.audience, state.goal, state.platform, "memory-demo-v1"].join("|");
+      return "EXP-" + hash32(raw).slice(0, 4);
     }
 
     function pick(types, fallback) {
@@ -389,23 +399,50 @@
       }).filter(Boolean);
     }
 
-    async function analyzeWithLLM(title, duration, lines) {
-      const systemPrompt = "You extract 5-8 content-strategy moments from a video transcript. Return ONLY JSON: {id,title,duration,summary,moments:[{id,start,end,type,description,evidence,why,visualStrength,narrativeStrength}]}. Types: reveal, failure, mistake, surprise, insight, before/after, emotion, statement, explanation, conflict, payoff, curiosity. start/end are seconds. No markdown.";
-      const res = await fetch(LLM_URL, {
-        method: "POST", credentials: "omit",
-        headers: { "Content-Type": "application/json", "Authorization": LLM_AUTH },
-        body: JSON.stringify({ messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: "Title: " + title + "\nDuration seconds: " + duration + "\nTranscript:\n" + lines.map(s => fmt(s.t) + " " + s.text).join("\n") }
-        ] })
+    function localMoments(lines) {
+      const keys = [
+        [/broke|error|fail|cors|bug/, "failure"],
+        [/rendered|working|finally|done|built/, "reveal"],
+        [/don.?t|wait|yet|if this works/, "curiosity"],
+        [/empty|blank|start/, "before/after"],
+        [/that.?s the/, "payoff"]
+      ];
+      return lines.slice(0, 8).map((s, i) => {
+        const hit = keys.find(k => k[0].test(s.text.toLowerCase()));
+        const type = hit ? hit[1] : "statement";
+        return {
+          id: "M" + String(i + 1).padStart(2, "0"),
+          start: s.t, end: s.t + 12, type,
+          description: s.text.slice(0, 80),
+          evidence: s.text,
+          why: "Taken from the pasted transcript at " + fmt(s.t) + ".",
+          narrativeStrength: 0.7, hookPotential: type === "reveal" ? 0.85 : 0.5, informationDensity: 0.6
+        };
       });
-      const data = await res.json();
-      const reply = data?.choices?.[0]?.message?.content;
-      if (!reply) throw new Error("empty");
-      const json = JSON.parse(reply.replace(/^```json\s*|```$/g, "").trim());
-      if (!json.moments || !json.moments.length) throw new Error("no moments");
-      json.moments = json.moments.slice(0, 8);
-      return json;
+    }
+
+    async function analyzeSource(title, duration, lines) {
+      const payload = { title, duration, transcript: lines };
+      try {
+        const res = await fetch(ANALYZE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.moments && json.moments.length) {
+            json.analysisMode = "SkyCastle server analysis (transcript only — no visualStrength)";
+            return json;
+          }
+        }
+      } catch (e) { /* static hosts have no /api */ }
+      return {
+        title, duration,
+        summary: "Local transcript parse. Live AI runs only when /api/analyze-source is available on SkyCastle.",
+        moments: localMoments(lines),
+        analysisMode: "Local transcript parse (GitHub Pages / static host — demo-safe, no secret, not visual analysis)"
+      };
     }
 
     async function runAnalysis(modeLabel, lines, title, duration) {
@@ -414,16 +451,18 @@
       err.textContent = "";
       document.getElementById("retryBtn").hidden = true;
       proc.textContent = "Understanding source...";
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 280));
       proc.textContent = "Detecting meaningful moments...";
       try {
-        const doc = await analyzeWithLLM(title, duration, lines);
+        const doc = await analyzeSource(title, duration, lines);
         proc.textContent = "Building creative experiments...";
         doc.transcript = lines;
-        doc.analysisMode = modeLabel;
-        doc.id = doc.id || ("SRC-" + Date.now().toString(16).slice(-4).toUpperCase());
         doc.duration = duration || doc.duration || 0;
         doc.title = title || doc.title || "Untitled source";
+        doc.id = sourceFingerprint(doc);
+        if (modeLabel && doc.analysisMode && doc.analysisMode.indexOf("SkyCastle") === -1) {
+          doc.analysisMode = modeLabel + " · " + doc.analysisMode;
+        }
         sourceDoc = doc;
         renderSourcePanel();
         renderExps(applied, true);
@@ -437,6 +476,7 @@
     }
 
     function loadDemo() {
+      DEMO_SOURCE.id = sourceFingerprint(DEMO_SOURCE);
       sourceDoc = DEMO_SOURCE;
       document.getElementById("poster").classList.remove("hide");
       document.getElementById("vid").classList.remove("on");
