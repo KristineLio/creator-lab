@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubel339zzuc4blt -->
+<!-- aha-build-id: bmubf073fvtff1xgp -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,7 +21,12 @@
     .demo-banner { margin: 0 28px 16px; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 12px; }
     .demo-banner strong { color: var(--accent); }
     .lab { display: grid; grid-template-columns: 300px 1fr 280px; gap: 16px; padding: 0 28px 20px; }
-    @media (max-width: 1100px) { .lab { grid-template-columns: 1fr; } }
+    @media (max-width: 1100px) {
+      .lab { grid-template-columns: 1fr; }
+      .lab > aside.ctrl { order: 2; }
+      .lab > section:nth-child(2) { order: 3; }
+      .lab > section:first-child { order: 1; }
+    }
     .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
     h2 { font-family: "Instrument Serif", Georgia, serif; font-size: 20px; font-weight: 400; margin: 0 0 12px; }
     video.source-vid { width: 100%; height: 160px; object-fit: cover; border-radius: 12px; background: #1a1714; display: none; }
@@ -142,6 +147,7 @@
       <label>Platform</label>
       <select id="platform">
         <option value="tiktok">TikTok</option>
+        <option value="instagram">Instagram Reels</option>
         <option value="youtube">YouTube</option>
       </select>
       <p class="locked" id="lockHint">Change exactly one variable from the applied state, then press the butterfly.</p>
@@ -167,7 +173,10 @@
     </section>
   </div>
   <script>
-    const ANALYZE_URL = "/api/analyze-source";
+    const CREATOR_LAB_CONFIG = {
+      analyzeUrl: window.CREATOR_LAB_ANALYZE_URL || "/api/analyze-source"
+    };
+    const ANALYZE_URL = CREATOR_LAB_CONFIG.analyzeUrl;
 
     const DEMO_TRANSCRIPT = [
       { t: 8, text: "Okay, empty project. I’m just going to try to fetch weather." },
@@ -196,7 +205,7 @@
     const LABELS = {
       audience: { beginners: "Beginners", experienced: "Experienced Developers" },
       goal: { views: "Views", qualified: "Qualified Users" },
-      platform: { tiktok: "TikTok", youtube: "YouTube" }
+      platform: { tiktok: "TikTok", instagram: "Instagram Reels", youtube: "YouTube" }
     };
 
     let sourceDoc = DEMO_SOURCE;
@@ -222,9 +231,9 @@
       return "SRC-" + hash32(raw).slice(0, 8);
     }
     function fingerprint(state) {
-      const moments = (sourceDoc.moments || []).map(m => [m.id, m.start, m.type, m.description].join(":")).join(";");
+      const moments = (sourceDoc.moments || []).map(m => [m.id, m.start, m.end, m.type, m.description, m.evidence].join(":")).join(";");
       const raw = [sourceDoc.id, moments, state.audience, state.goal, state.platform, "memory-demo-v1"].join("|");
-      return "EXP-" + hash32(raw).slice(0, 4);
+      return "EXP-" + hash32(raw).slice(0, 8);
     }
 
     function pick(types, fallback) {
@@ -239,45 +248,44 @@
     function packFor(state) {
       const moments = sourceDoc.moments || [];
       const reveal = pick(["reveal", "payoff", "before"], moments[0]);
-      const cur = pick(["curiosity", "surprise", "statement", "emotion"], moments[1] || reveal);
-      const fail = pick(["failure", "mistake", "conflict", "insight"], null);
-      const tt = state.platform === "tiktok";
+      const curiosityMoment = pick(["curiosity", "surprise", "statement", "emotion"], moments[1] || reveal);
+      const failureMoment = pick(["failure", "mistake", "conflict", "insight"], null);
       const views = state.goal === "views";
-      const beg = state.audience === "beginners";
-      const win = (m, short, long) => m ? (fmt(m.start) + "–" + fmt(m.start + (tt ? short : long))) : "—";
-
-      function card(k, m, extraHyp, hookFallback) {
-        const missingFail = k === "FAILURE" && !fail;
-        const use = missingFail ? (pick(["explanation", "insight"], reveal)) : m;
+      const beginner = state.audience === "beginners";
+      const PLATFORM = {
+        tiktok: { shortWindow: 8, longWindow: 14, viewsBehavior: "Stop the first swipe and create an immediate reason to stay.", viewsMetric: "3-second retention", qualifiedBehavior: "Earn attention quickly, then drive a qualified click.", qualifiedMetric: "Qualified clicks", curiosityHypothesis: "Open before the result so the swipe never happens.", transformationHypothesis: "Show the payoff immediately before attention drops.", failureHypothesis: "A real break moment creates instant tension and watchability." },
+        instagram: { shortWindow: 10, longWindow: 18, viewsBehavior: "Earn the hold, then create a moment viewers want to save or share.", viewsMetric: "3-second hold + saves/shares", qualifiedBehavior: "Build credibility, then drive profile visits, follows, or link intent.", qualifiedMetric: "Profile visits + qualified follows", curiosityHypothesis: "Create an unresolved visual or narrative question that earns the next beat.", transformationHypothesis: "Lead with a strong finished result that is saveable and shareable.", failureHypothesis: "Use a relatable failure or debugging beat that invites comments, saves, or shares." },
+        youtube: { shortWindow: 16, longWindow: 28, viewsBehavior: "Create a clear setup/payoff arc that sustains viewing.", viewsMetric: "Average view duration + completion", qualifiedBehavior: "Use deeper proof and explanation before asking for action.", qualifiedMetric: "Qualified clicks + completion", curiosityHypothesis: "Sustain curiosity across a longer setup/payoff sequence.", transformationHypothesis: "Use the result as a promise, then show how it happened.", failureHypothesis: "A technical failure becomes a story beat when the explanation is worth staying for." }
+      };
+      const profile = PLATFORM[state.platform] || PLATFORM.tiktok;
+      function windowFor(moment) {
+        if (!moment) return "—";
+        const length = state.platform === "youtube" ? profile.longWindow : profile.shortWindow;
+        return fmt(moment.start) + "–" + fmt(moment.start + length);
+      }
+      function card(kind, moment, hypothesis, fallbackHook) {
+        const missingFailure = kind === "FAILURE" && !failureMoment;
+        const selected = missingFailure ? pick(["explanation", "insight"], reveal) : moment;
         return {
-          k: missingFail ? "INSIGHT" : k,
-          hyp: missingFail
-            ? "No clear failure beat in this source, so Creator Lab will not invent one. Using the strongest technical explanation instead."
-            : extraHyp,
-          ev: use ? ("At " + fmt(use.start) + " — " + (use.evidence || use.description)) : "No matching moment.",
-          mom: use ? win(use, 8, 16) : "—",
-          start: use ? use.start : 0,
-          hook: use ? (use.description || hookFallback) : hookFallback,
-          beh: views ? (tt ? "Stop the 3-second swipe." : "Hold through the first payoff.") : "Click through after proof.",
-          met: views ? (tt ? "3-second retention" : "Average view duration") : "Qualified clicks",
-          note: missingFail
+          k: missingFailure ? "INSIGHT" : kind,
+          hyp: missingFailure ? "No clear failure beat exists in this source, so Creator Lab will not invent one. It uses the strongest defensible insight instead." : hypothesis,
+          ev: selected ? ("At " + fmt(selected.start) + " — " + (selected.evidence || selected.description)) : "No matching source moment.",
+          mom: selected ? windowFor(selected) : "—",
+          start: selected ? selected.start : 0,
+          hook: selected ? (selected.description || fallbackHook) : fallbackHook,
+          beh: views ? profile.viewsBehavior : profile.qualifiedBehavior,
+          met: views ? profile.viewsMetric : profile.qualifiedMetric,
+          note: missingFailure
         };
       }
-
-      const trans = card("TRANSFORMATION", reveal,
-        beg ? "Opening on the finished result should reduce early drop." : "Frame the result as a decision seniors can reuse.",
-        "Watch what this became.");
-      const curiosity = card("CURIOSITY", cur,
-        tt ? "Open before the result so the swipe never happens." : "Sustain setup/payoff for completion.",
-        "Don’t skip this yet.");
-      const failureC = card("FAILURE", fail,
-        views ? "A real break is more watchable than a clean demo." : "Technical evidence at the break is what qualified users trust.",
-        "This is where it broke.");
-
-      if (!beg && fail) return [failureC, trans, curiosity];
-      if (!views) return [failureC.note ? curiosity : failureC, curiosity, trans];
-      if (!tt) return [curiosity, trans, failureC];
-      return [trans, curiosity, failureC];
+      const transformation = card("TRANSFORMATION", reveal, beginner ? profile.transformationHypothesis : "Frame the result as a reusable decision or technical lesson rather than a beginner reveal.", "Watch what this became.");
+      const curiosity = card("CURIOSITY", curiosityMoment, profile.curiosityHypothesis, "Don’t skip this yet.");
+      const failure = card("FAILURE", failureMoment, views ? profile.failureHypothesis : "Use concrete technical evidence from the failure to attract qualified viewers who care about the problem.", "This is where it broke.");
+      if (!beginner && failureMoment) return [failure, transformation, curiosity];
+      if (!views) return [failure.note ? curiosity : failure, transformation, curiosity];
+      if (state.platform === "youtube") return [curiosity, transformation, failure];
+      if (state.platform === "instagram") return beginner ? [transformation, curiosity, failure] : [failure, transformation, curiosity];
+      return [transformation, curiosity, failure];
     }
 
     const WHY = {
@@ -290,8 +298,9 @@
         views: "Goal changed. Reach favors the most visually complete moment in this source and retention metrics."
       },
       platform: {
-        youtube: "Platform changed. YouTube can hold a longer window around the same source moment; metric shifts to average view duration.",
-        tiktok: "Platform changed. TikTok shortens the same source moment and judges the open on 3-second retention."
+        tiktok: "Platform changed. TikTok rewards an immediate reason to stay, so Creator Lab uses a tighter opening window and prioritizes 3-second retention.",
+        instagram: "Platform changed. Instagram Reels needs an immediate hold but also rewards content people save, share, revisit, or use to visit the creator profile. Creator Lab adjusts the window and evaluation metric accordingly.",
+        youtube: "Platform changed. YouTube supports a longer setup/payoff arc, so Creator Lab can preserve more context and judge the strategy on average view duration and completion."
       }
     };
 
@@ -431,8 +440,8 @@
         });
         if (res.ok) {
           const json = await res.json();
-          if (json && json.moments && json.moments.length) {
-            json.analysisMode = "SkyCastle server analysis (transcript only — no visualStrength)";
+          if (json && json.ok !== false && Array.isArray(json.moments) && json.moments.length) {
+            json.analysisMode = "SkyCastle server analysis · transcript grounded";
             return json;
           }
         }
