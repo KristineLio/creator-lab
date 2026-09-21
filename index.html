@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubd7a6lewe748kd -->
+<!-- aha-build-id: bmubeej34jsusquth -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,13 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #1c1916;
-      --surface: #26221e;
-      --lift: #302b26;
-      --line: rgba(232, 220, 198, 0.12);
-      --text: #f3eadb;
-      --muted: #b7ab98;
-      --accent: #e8a35a;
+      --bg: #1c1916; --surface: #26221e; --lift: #302b26;
+      --line: rgba(232, 220, 198, 0.12); --text: #f3eadb; --muted: #b7ab98; --accent: #e8a35a;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--text); font-family: "IBM Plex Sans", system-ui, sans-serif; }
@@ -25,42 +20,57 @@
     .tag { color: var(--muted); font-size: 13px; }
     .demo-banner { margin: 0 28px 16px; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 12px; }
     .demo-banner strong { color: var(--accent); }
-    .lab { display: grid; grid-template-columns: 280px 1fr 280px; gap: 16px; padding: 0 28px 20px; }
+    .lab { display: grid; grid-template-columns: 300px 1fr 280px; gap: 16px; padding: 0 28px 20px; }
     @media (max-width: 1100px) { .lab { grid-template-columns: 1fr; } }
     .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
     h2 { font-family: "Instrument Serif", Georgia, serif; font-size: 20px; font-weight: 400; margin: 0 0 12px; }
+    video.source-vid { width: 100%; height: 160px; object-fit: cover; border-radius: 12px; background: #1a1714; display: none; }
+    video.source-vid.on { display: block; }
     .preview {
       width: 100%; height: 140px; border-radius: 12px; position: relative; overflow: hidden;
       background: linear-gradient(145deg, #3a3229 0%, #2a241e 55%, #4a3a2c 100%);
     }
-    .preview::after {
-      content: "SOURCE  00:43";
-      position: absolute; left: 12px; bottom: 10px;
-      font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; color: #f3eadb;
-    }
-    .monitor {
-      position: absolute; left: 18%; top: 18%; width: 64%; height: 52%;
-      border-radius: 6px; background: #1a1714; border: 1px solid rgba(243,234,219,0.2);
-    }
+    .preview.hide { display: none; }
+    .preview::after { content: "DEMO SOURCE  00:43"; position: absolute; left: 12px; bottom: 10px; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; }
+    .monitor { position: absolute; left: 18%; top: 18%; width: 64%; height: 52%; border-radius: 6px; background: #1a1714; border: 1px solid rgba(243,234,219,0.2); }
     .monitor span { display: block; height: 6px; margin: 10px 10px 0; background: #e8a35a; width: 40%; border-radius: 3px; }
     .monitor em { display: block; height: 4px; margin: 8px 10px 0; background: #5c5348; width: 70%; border-radius: 2px; font-style: normal; }
-    .source-line { font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
-    .timeline { display: flex; gap: 4px; height: 8px; margin-bottom: 12px; }
-    .tick { flex: 1; background: #3d372f; border-radius: 4px; }
-    .tick.on { background: var(--accent); }
-    .moments, .tr { font-size: 12px; color: var(--muted); line-height: 1.55; }
-    .moments button, .tr button {
-      display: block; width: 100%; text-align: left; background: transparent; border: 0; color: inherit; padding: 6px 0; cursor: pointer; font: inherit;
+    .source-line { font-size: 12px; color: var(--muted); margin: 8px 0 8px; }
+    .src-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .src-actions label, .src-actions button {
+      background: #1c1916; color: var(--text); border: 1px solid var(--line); border-radius: 999px;
+      padding: 7px 12px; font: 12px "IBM Plex Sans", sans-serif; cursor: pointer;
     }
+    .src-actions input[type=file] { display: none; }
+    textarea.tr-in {
+      width: 100%; min-height: 72px; background: #1c1916; color: var(--text); border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px; font: 12px "IBM Plex Mono", monospace; margin: 6px 0;
+    }
+    .proc { font-size: 12px; color: var(--accent); min-height: 18px; margin: 4px 0 8px; }
+    .err { color: #d46a4c; font-size: 12px; }
+    .mode { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .timeline { position: relative; height: 18px; background: #3d372f; border-radius: 8px; margin-bottom: 12px; }
+    .mtick { position: absolute; top: 0; height: 100%; width: 8px; border-radius: 4px; cursor: pointer; transform: translateX(-50%); }
+    .mtick.reveal { background: #e8a35a; }
+    .mtick.failure, .mtick.mistake { background: #d46a4c; }
+    .mtick.curiosity, .mtick.surprise, .mtick.statement { background: #8fb4d9; }
+    .mtick.insight, .mtick.explanation { background: #8fbf8a; }
+    .mtick.emotion, .mtick.payoff { background: #c9a0d4; }
+    .mtick.on { outline: 2px solid #fff; }
+    .moments button, .tr button {
+      display: block; width: 100%; text-align: left; background: transparent; border: 0; color: inherit; padding: 6px 0; cursor: pointer; font: 12px inherit;
+    }
+    .moments button.sel, .tr button.sel { color: var(--text); background: rgba(232,163,90,0.12); border-radius: 6px; padding-left: 6px; }
+    .moments, .tr { font-size: 12px; color: var(--muted); line-height: 1.55; max-height: 180px; overflow: auto; }
     .exps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     @media (max-width: 900px) { .exps { grid-template-columns: 1fr; } }
     .card { background: var(--lift); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-height: 280px; }
     .card.branching { animation: branch 0.7s ease; }
-    @keyframes branch { 0% { transform: translateX(0); opacity: 1; } 40% { transform: translateX(-8px); opacity: 0.45; } 100% { transform: none; opacity: 1; } }
+    @keyframes branch { 0% { opacity: 1; } 40% { opacity: 0.45; transform: translateX(-8px); } 100% { opacity: 1; transform: none; } }
     .card.flash .chg { background: rgba(232,163,90,0.18); }
     .kicker { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--accent); }
     .id { float: right; font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted); }
-    .hook { font-family: "Instrument Serif", Georgia, serif; font-size: 22px; margin: 10px 0 12px; line-height: 1.2; }
+    .hook { font-family: "Instrument Serif", Georgia, serif; font-size: 20px; margin: 10px 0 12px; line-height: 1.2; }
     .meta { font-size: 12px; color: var(--muted); line-height: 1.6; }
     .meta b { color: var(--text); font-weight: 500; }
     .chg { border-radius: 6px; padding: 1px 4px; }
@@ -70,11 +80,10 @@
     .locked { font-size: 12px; color: var(--muted); margin-top: 10px; }
     .lower { padding: 0 28px 28px; display: grid; gap: 16px; }
     .why { display: none; }
-    .why.show { display: block; animation: rise 0.5s ease; }
-    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .why.show { display: block; }
     .ba { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; }
     @media (max-width: 700px) { .ba { grid-template-columns: 1fr; } }
-    .arrow { align-self: center; color: var(--accent); font-size: 22px; text-align: center; }
+    .arrow { align-self: center; color: var(--accent); text-align: center; }
     .changed-var { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--accent); margin-bottom: 12px; }
     .mem-item { font-size: 14px; line-height: 1.55; color: var(--muted); }
     .pill { display: inline-block; font-size: 10px; letter-spacing: 0.1em; border: 1px solid var(--accent); color: var(--accent); padding: 2px 8px; border-radius: 999px; margin-right: 8px; }
@@ -89,13 +98,26 @@
     </div>
     <div class="tag" id="stageLine">One source.</div>
   </header>
-  <div class="demo-banner"><strong>Demo Data</strong> — seeded coding-project source and historical memory. Entered results (none yet) would appear separately from this sample history.</div>
+  <div class="demo-banner"><strong>Demo Data</strong> — Creator Memory is still seeded. Source analysis can use a real file + transcript, or Load Demo Source.</div>
   <p class="stage" id="stageBig">One source.</p>
   <div class="lab">
     <section class="panel">
       <h2>Source</h2>
-      <div class="preview" role="img" aria-label="Self-contained preview of a weather-app coding session on a laptop"><div class="monitor"><span></span><em></em><em></em></div></div>
-      <p class="source-line">Weather App Build · 04:12 · coding session</p>
+      <div class="src-actions">
+        <label>Choose video<input id="file" type="file" accept="video/*" /></label>
+        <button type="button" id="demoBtn">Load Demo Source</button>
+        <button type="button" id="analyzeBtn">Analyze source</button>
+        <button type="button" id="retryBtn" hidden>Retry analysis</button>
+      </div>
+      <div class="preview" id="poster"><div class="monitor"><span></span><em></em><em></em></div></div>
+      <video id="vid" class="source-vid" controls playsinline></video>
+      <p class="source-line" id="srcMeta">Weather App Build · 04:12 · coding session</p>
+      <p class="mode" id="analysisMode">Analysis source: Demo transcript (built-in)</p>
+      <p class="proc" id="proc"></p>
+      <p class="err" id="err"></p>
+      <label class="mode" for="transcriptIn">Transcript fallback (paste if the video has no auto-transcript)</label>
+      <textarea class="tr-in" id="transcriptIn" placeholder="00:08 empty project…
+00:43 it rendered…"></textarea>
       <div class="timeline" id="timeline"></div>
       <div class="moments" id="moments"></div>
       <h2 style="margin-top:16px">Transcript</h2>
@@ -145,23 +167,31 @@
     </section>
   </div>
   <script>
-    const SOURCE = {
-      id: "weather-app-build",
-      memory: "demo-v1",
+    const LLM_URL = "https://skycastle.ai/api/capabilities/llm";
+    const LLM_AUTH = "Bearer Fe26.2*1*c6da3858322d319e33790034f8777c4391047a052eddbe032822e7441a8c0de6*761G1w-NhbdXnpMiY_Evzw*ha_3CcWyr5IT2kOFi-PTJB1DHSQTtVQXgzJJyi77EyDffChWxVjJFBVrmquhbGGE*1821540401488*3ccbc28aee4d02c32a59d6c51cc6c421775c0c1b789f93f2ba599d8a0a6eef8e*6tksvY5CdhmvISUFb7C9vBmKYWCyJm4MjF3yLm6kXEo~2";
+
+    const DEMO_TRANSCRIPT = [
+      { t: 8, text: "Okay, empty project. I’m just going to try to fetch weather." },
+      { t: 43, text: "Wait— it actually rendered. I finally got the app working." },
+      { t: 72, text: "Don’t refresh yet. If this works I’m going to scream." },
+      { t: 131, text: "This API decision broke the entire request flow. CORS, then the key, then the path." },
+      { t: 182, text: "Okay. That’s the bug. That’s the whole video." }
+    ];
+
+    const DEMO_SOURCE = {
+      id: "SRC-DEMO",
+      title: "Weather App Build",
+      duration: 252,
+      summary: "A coding session that starts empty, reveals a working weather UI, then hits an API failure and explains the fix.",
+      analysisMode: "Demo transcript (built-in)",
       moments: [
-        { t: "00:08", label: "Blank screen, first save" },
-        { t: "00:43", label: "Working weather UI reveal" },
-        { t: "01:12", label: "Pause before hitting run" },
-        { t: "02:11", label: "API decision breaks request flow" },
-        { t: "03:02", label: "Fix lands, quiet satisfaction" }
+        { id: "M01", start: 8, end: 22, type: "before/after", description: "Blank first save", evidence: "Empty project, first fetch attempt.", why: "Shows the before state.", visualStrength: 0.5, narrativeStrength: 0.7 },
+        { id: "M02", start: 43, end: 58, type: "reveal", description: "Working weather UI reveal", evidence: "Creator says it actually rendered.", why: "Strong finished-result beat.", visualStrength: 0.9, narrativeStrength: 0.85 },
+        { id: "M03", start: 72, end: 88, type: "curiosity", description: "Pause before hitting run", evidence: "Don’t refresh yet.", why: "Unresolved tension before payoff.", visualStrength: 0.4, narrativeStrength: 0.8 },
+        { id: "M04", start: 131, end: 149, type: "failure", description: "API decision breaks request flow", evidence: "CORS, then the key, then the path.", why: "Technical insight for experienced viewers.", visualStrength: 0.55, narrativeStrength: 0.95 },
+        { id: "M05", start: 182, end: 198, type: "payoff", description: "Fix lands", evidence: "That’s the bug. That’s the whole video.", why: "Quiet resolution.", visualStrength: 0.6, narrativeStrength: 0.7 }
       ],
-      transcript: [
-        { t: "00:08", text: "Okay, empty project. I’m just going to try to fetch weather." },
-        { t: "00:43", text: "Wait— it actually rendered. I finally got the app working." },
-        { t: "01:12", text: "Don’t refresh yet. If this works I’m going to scream." },
-        { t: "02:11", text: "This API decision broke the entire request flow. CORS, then the key, then the path." },
-        { t: "03:02", text: "Okay. That’s the bug. That’s the whole video." }
-      ]
+      transcript: DEMO_TRANSCRIPT
     };
 
     const LABELS = {
@@ -170,113 +200,133 @@
       platform: { tiktok: "TikTok", youtube: "YouTube" }
     };
 
-    function fingerprint(s) {
-      const raw = [SOURCE.id, s.audience, s.goal, s.platform, SOURCE.memory].join("|");
+    let sourceDoc = DEMO_SOURCE;
+    let applied = { audience: "beginners", goal: "views", platform: "tiktok" };
+    let videoUrl = null;
+
+    function fmt(s) {
+      s = Math.max(0, Math.floor(s || 0));
+      return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+    }
+
+    function fingerprint(state) {
+      const ids = (sourceDoc.moments || []).map(m => m.id).join(",");
+      const raw = [sourceDoc.id, ids, state.audience, state.goal, state.platform, "demo-v1"].join("|");
       let h = 0;
       for (let i = 0; i < raw.length; i++) h = (h * 33 + raw.charCodeAt(i)) >>> 0;
       return "EXP-" + h.toString(16).slice(-4).toUpperCase();
     }
 
-    function packFor(s) {
-      const a = s.audience, g = s.goal, p = s.platform;
-      const tt = p === "tiktok";
-      const views = g === "views";
-      const beg = a === "beginners";
+    function pick(types, fallback) {
+      const pool = sourceDoc.moments || [];
+      for (const t of types) {
+        const hit = pool.find(m => (m.type || "").toLowerCase().includes(t));
+        if (hit) return hit;
+      }
+      return fallback || pool[0];
+    }
 
-      const trans = {
-        k: "TRANSFORMATION",
-        hyp: beg
-          ? (views ? "A finished-app reveal will stop the first-three-second drop." : "A finished-app reveal plus a clear ‘what you can ship’ promise will convert learners.")
-          : (views ? "Even seniors will stay if the result is shockingly complete in one beat." : "Seniors convert when the result is framed as a decision they can reuse."),
-        ev: "Strongest visual reveal at 00:43.",
-        mom: tt ? "00:43–00:51" : "00:43–00:58",
-        hook: beg ? "I finally built my first working weather app." : "The UI wasn’t the hard part. Shipping the request was.",
-        beh: views ? (tt ? "Stop the 3-second swipe." : "Hold through the first payoff.") : "Click through to the build notes.",
-        met: views ? (tt ? "3-second retention" : "Average view duration") : "Clicks + qualified follows"
-      };
-      const cur = {
-        k: "CURIOSITY",
-        hyp: tt
-          ? "Open before the result so the swipe never happens."
-          : "Sustain curiosity across a longer setup/payoff so completion rises.",
-        ev: "Pause before run at 01:12.",
-        mom: tt ? "01:12–01:20" : "01:12–01:36",
-        hook: beg ? "Don’t refresh yet." : "The request never even left the browser.",
-        beh: views ? (tt ? "Hold the first 3 seconds." : "Increase average view duration.") : "Seek the explanation, then click.",
-        met: views ? (tt ? "3-second retention" : "Average view duration / completion") : "Clicks / conversions"
-      };
-      const fail = {
-        k: "FAILURE",
-        hyp: views
-          ? (beg ? "A small break humanizes the tutorial and keeps people watching." : "A real break moment is more shareable than a clean demo.")
-          : "Technical evidence at the break is what qualified users trust.",
-        ev: beg && views ? "Blank first save at 00:08." : "Self-contained technical explanation at 02:11.",
-        mom: beg && views ? (tt ? "00:08–00:16" : "00:08–00:22") : (tt ? "02:11–02:20" : "02:11–02:29"),
-        hook: beg && views ? "This started as an empty file." : "This API decision broke the entire request flow.",
-        beh: views ? "Identification, then continued watch." : "Credibility, then click to the fix.",
-        met: views ? (tt ? "3-second retention" : "Completion rate") : "Qualified clicks"
-      };
+    function packFor(state) {
+      const moments = sourceDoc.moments || [];
+      const reveal = pick(["reveal", "payoff", "before"], moments[0]);
+      const cur = pick(["curiosity", "surprise", "statement", "emotion"], moments[1] || reveal);
+      const fail = pick(["failure", "mistake", "conflict", "insight"], null);
+      const tt = state.platform === "tiktok";
+      const views = state.goal === "views";
+      const beg = state.audience === "beginners";
+      const win = (m, short, long) => m ? (fmt(m.start) + "–" + fmt(m.start + (tt ? short : long))) : "—";
 
-      let order;
-      if (!views) order = [fail, cur, trans];
-      else if (!tt) order = [cur, trans, fail];
-      else if (!beg) order = [fail, trans, cur];
-      else order = [trans, cur, fail];
-      return order;
+      function card(k, m, extraHyp, hookFallback) {
+        const missingFail = k === "FAILURE" && !fail;
+        const use = missingFail ? (pick(["explanation", "insight"], reveal)) : m;
+        return {
+          k: missingFail ? "INSIGHT" : k,
+          hyp: missingFail
+            ? "No clear failure beat in this source, so Creator Lab will not invent one. Using the strongest technical explanation instead."
+            : extraHyp,
+          ev: use ? ("At " + fmt(use.start) + " — " + (use.evidence || use.description)) : "No matching moment.",
+          mom: use ? win(use, 8, 16) : "—",
+          start: use ? use.start : 0,
+          hook: use ? (use.description || hookFallback) : hookFallback,
+          beh: views ? (tt ? "Stop the 3-second swipe." : "Hold through the first payoff.") : "Click through after proof.",
+          met: views ? (tt ? "3-second retention" : "Average view duration") : "Qualified clicks",
+          note: missingFail
+        };
+      }
+
+      const trans = card("TRANSFORMATION", reveal,
+        beg ? "Opening on the finished result should reduce early drop." : "Frame the result as a decision seniors can reuse.",
+        "Watch what this became.");
+      const curiosity = card("CURIOSITY", cur,
+        tt ? "Open before the result so the swipe never happens." : "Sustain setup/payoff for completion.",
+        "Don’t skip this yet.");
+      const failureC = card("FAILURE", fail,
+        views ? "A real break is more watchable than a clean demo." : "Technical evidence at the break is what qualified users trust.",
+        "This is where it broke.");
+
+      if (!beg && fail) return [failureC, trans, curiosity];
+      if (!views) return [failureC.note ? curiosity : failureC, curiosity, trans];
+      if (!tt) return [curiosity, trans, failureC];
+      return [trans, curiosity, failureC];
     }
 
     const WHY = {
       audience: {
-        experienced: "Audience changed. Experienced developers value the implementation decision more than the finished-app reveal, so Creator Lab promoted the 02:11 debugging beat and a more specific hook.",
-        beginners: "Audience changed. Beginners need a finished, understandable result, so Creator Lab returned to the 00:43 reveal and a first-app hook."
+        experienced: "Audience changed. Experienced viewers get more from a debugging/insight moment that actually exists in this source.",
+        beginners: "Audience changed. Beginners need a finished, understandable result from this source’s reveal beat."
       },
       goal: {
-        qualified: "Goal changed. Views optimize for retention and curiosity; qualified users need technical evidence, problem specificity, and a click. Creator Lab promoted the API-break moment and conversion metrics.",
-        views: "Goal changed. The objective is now reach, not conversion, so Creator Lab prioritized broader transformation/curiosity openings and retention metrics."
+        qualified: "Goal changed. Qualified users need evidence and specificity from this source, not just a broad reveal.",
+        views: "Goal changed. Reach favors the most visually complete moment in this source and retention metrics."
       },
       platform: {
-        youtube: "Platform changed. YouTube rewards setup/payoff and completion, so windows got longer and the metric shifted from 3-second retention to average view duration.",
-        tiktok: "Platform changed. TikTok punishes a slow open, so Creator Lab shortened the payoff window and judged the cut on 3-second retention."
+        youtube: "Platform changed. YouTube can hold a longer window around the same source moment; metric shifts to average view duration.",
+        tiktok: "Platform changed. TikTok shortens the same source moment and judges the open on 3-second retention."
       }
     };
 
-    let applied = { audience: "beginners", goal: "views", platform: "tiktok" };
-
-    function currentDraft() {
-      return {
-        audience: document.getElementById("audience").value,
-        goal: document.getElementById("goal").value,
-        platform: document.getElementById("platform").value
-      };
+    function setStage(t) {
+      document.getElementById("stageLine").textContent = t;
+      document.getElementById("stageBig").textContent = t;
     }
 
-    function diffs(a, b) {
-      return ["audience", "goal", "platform"].filter(k => a[k] !== b[k]);
+    function renderSourcePanel() {
+      document.getElementById("srcMeta").textContent =
+        sourceDoc.title + " · " + fmt(sourceDoc.duration) + " · " + (sourceDoc.analysisMode || "");
+      document.getElementById("analysisMode").textContent = "Analysis source: " + (sourceDoc.analysisMode || "unknown");
+      const dur = sourceDoc.duration || 1;
+      document.getElementById("timeline").innerHTML = (sourceDoc.moments || []).map(m => {
+        const left = Math.min(96, Math.max(2, (m.start / dur) * 100));
+        const cls = (m.type || "reveal").split(/[\/\s]/)[0];
+        return `<div class="mtick ${cls}" data-id="${m.id}" style="left:${left}%" title="${m.type}"></div>`;
+      }).join("");
+      document.getElementById("moments").innerHTML = (sourceDoc.moments || []).map(m =>
+        `<button type="button" data-id="${m.id}"><b>${fmt(m.start)}</b> · ${m.type} · ${m.description}</button>`).join("");
+      document.getElementById("tr").innerHTML = (sourceDoc.transcript || []).map((s, i) =>
+        `<button type="button" data-i="${i}"><b>${fmt(s.t)}</b> ${s.text}</button>`).join("");
+      document.querySelectorAll("#timeline .mtick, #moments button").forEach(el => {
+        el.addEventListener("click", () => selectMoment(el.getAttribute("data-id")));
+      });
     }
 
-    function enforceOne() {
-      const next = currentDraft();
-      const changed = diffs(applied, next);
-      if (changed.length > 1) {
-        const keep = changed[0];
-        ["audience", "goal", "platform"].forEach(k => {
-          if (k !== keep) document.getElementById(k).value = applied[k];
-        });
-        document.getElementById("lockHint").textContent = "Only one variable can change. Extra controls were reset.";
-      } else if (changed.length === 1) {
-        document.getElementById("lockHint").textContent = "Ready: " + changed[0] + " will be the only change.";
-      } else {
-        document.getElementById("lockHint").textContent = "Change exactly one variable from the applied state, then press the butterfly.";
+    function selectMoment(id) {
+      const m = (sourceDoc.moments || []).find(x => x.id === id);
+      if (!m) return;
+      document.querySelectorAll(".mtick").forEach(t => t.classList.toggle("on", t.getAttribute("data-id") === id));
+      document.querySelectorAll("#moments button").forEach(b => b.classList.toggle("sel", b.getAttribute("data-id") === id));
+      const tr = document.querySelectorAll("#tr button");
+      tr.forEach(b => b.classList.remove("sel"));
+      let best = 0, bestD = 1e9;
+      (sourceDoc.transcript || []).forEach((s, i) => {
+        const d = Math.abs(s.t - m.start);
+        if (d < bestD) { bestD = d; best = i; }
+      });
+      if (tr[best]) tr[best].classList.add("sel");
+      const v = document.getElementById("vid");
+      if (v && v.src && !isNaN(m.start)) {
+        v.currentTime = m.start;
+        v.play().catch(() => {});
       }
-    }
-
-    function renderSource() {
-      document.getElementById("timeline").innerHTML = SOURCE.moments.map((_, i) =>
-        `<div class="tick${i === 1 ? " on" : ""}"></div>`).join("");
-      document.getElementById("moments").innerHTML = SOURCE.moments.map(m =>
-        `<button type="button"><b>${m.t}</b> · ${m.label}</button>`).join("");
-      document.getElementById("tr").innerHTML = SOURCE.transcript.map(s =>
-        `<button type="button"><b>${s.t}</b> ${s.text}</button>`).join("");
     }
 
     function renderExps(state, animate) {
@@ -289,23 +339,35 @@
         <div class="hook chg">“${c.hook}”</div>
         <div class="meta">
           <div><b>Hypothesis</b> <span class="chg">${c.hyp}</span></div>
-          <div><b>Evidence</b> ${c.ev}</div>
+          <div><b>Evidence from source</b> ${c.ev}</div>
           <div><b>Moment</b> <span class="chg">${c.mom}</span></div>
           <div><b>Expected behaviour</b> ${c.beh}</div>
           <div><b>Judge by</b> ${c.met}</div>
         </div>
       </article>`).join("");
-      if (animate) {
-        [...root.children].forEach(el => {
-          el.classList.add("branching", "flash");
-          setTimeout(() => el.classList.remove("branching"), 700);
-        });
-      }
+      if (animate) [...root.children].forEach(el => { el.classList.add("branching", "flash"); });
     }
 
-    function setStage(t) {
-      document.getElementById("stageLine").textContent = t;
-      document.getElementById("stageBig").textContent = t;
+    function currentDraft() {
+      return {
+        audience: document.getElementById("audience").value,
+        goal: document.getElementById("goal").value,
+        platform: document.getElementById("platform").value
+      };
+    }
+    function diffs(a, b) { return ["audience", "goal", "platform"].filter(k => a[k] !== b[k]); }
+    function enforceOne() {
+      const next = currentDraft();
+      const changed = diffs(applied, next);
+      if (changed.length > 1) {
+        const keep = changed[0];
+        ["audience", "goal", "platform"].forEach(k => { if (k !== keep) document.getElementById(k).value = applied[k]; });
+        document.getElementById("lockHint").textContent = "Only one variable can change. Extra controls were reset.";
+      } else if (changed.length === 1) {
+        document.getElementById("lockHint").textContent = "Ready: " + changed[0] + " will be the only change.";
+      } else {
+        document.getElementById("lockHint").textContent = "Change exactly one variable from the applied state, then press the butterfly.";
+      }
     }
 
     function showWhy(from, to, key) {
@@ -313,41 +375,123 @@
       const a = packFor(to)[0];
       document.getElementById("changedVar").textContent = "Changed variable: " + key[0].toUpperCase() + key.slice(1);
       document.getElementById("midArrow").textContent = "→ " + key + " →";
-      document.getElementById("before").innerHTML =
-        `<div class="kicker">Before</div><p class="hook" style="font-size:18px">“${b.hook}”</p><p class="meta">${b.k} · ${b.mom}<br>${LABELS.audience[from.audience]} · ${LABELS.goal[from.goal]} · ${LABELS.platform[from.platform]}<br>${fingerprint(from)}</p>`;
-      document.getElementById("after").innerHTML =
-        `<div class="kicker">After</div><p class="hook" style="font-size:18px">“${a.hook}”</p><p class="meta">${a.k} · ${a.mom}<br>${LABELS.audience[to.audience]} · ${LABELS.goal[to.goal]} · ${LABELS.platform[to.platform]}<br>${fingerprint(to)}</p>`;
+      document.getElementById("before").innerHTML = `<div class="kicker">Before</div><p class="hook" style="font-size:18px">“${b.hook}”</p><p class="meta">${b.k} · ${b.mom}<br>${fingerprint(from)}</p>`;
+      document.getElementById("after").innerHTML = `<div class="kicker">After</div><p class="hook" style="font-size:18px">“${a.hook}”</p><p class="meta">${a.k} · ${a.mom}<br>${fingerprint(to)}</p>`;
       document.getElementById("reason").textContent = WHY[key][to[key]];
       document.getElementById("why").classList.add("show");
-      document.getElementById("memNext").textContent = key === "audience" && to.audience === "experienced"
-        ? "Demo memory still favors result-first for beginners; this branch overrides it because audience changed."
-        : "Based on your previous experiments, Creator Lab is prioritizing the result-first opening unless a variable demands otherwise.";
     }
 
-    ["audience", "goal", "platform"].forEach(id => {
-      document.getElementById(id).addEventListener("change", enforceOne);
+    function parseTranscript(text) {
+      return text.split(/\n+/).map(line => {
+        const m = line.match(/(\d{1,2}):(\d{2})\s+(.+)/);
+        if (!m) return null;
+        return { t: (+m[1]) * 60 + (+m[2]), text: m[3].trim() };
+      }).filter(Boolean);
+    }
+
+    async function analyzeWithLLM(title, duration, lines) {
+      const systemPrompt = "You extract 5-8 content-strategy moments from a video transcript. Return ONLY JSON: {id,title,duration,summary,moments:[{id,start,end,type,description,evidence,why,visualStrength,narrativeStrength}]}. Types: reveal, failure, mistake, surprise, insight, before/after, emotion, statement, explanation, conflict, payoff, curiosity. start/end are seconds. No markdown.";
+      const res = await fetch(LLM_URL, {
+        method: "POST", credentials: "omit",
+        headers: { "Content-Type": "application/json", "Authorization": LLM_AUTH },
+        body: JSON.stringify({ messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: "Title: " + title + "\nDuration seconds: " + duration + "\nTranscript:\n" + lines.map(s => fmt(s.t) + " " + s.text).join("\n") }
+        ] })
+      });
+      const data = await res.json();
+      const reply = data?.choices?.[0]?.message?.content;
+      if (!reply) throw new Error("empty");
+      const json = JSON.parse(reply.replace(/^```json\s*|```$/g, "").trim());
+      if (!json.moments || !json.moments.length) throw new Error("no moments");
+      json.moments = json.moments.slice(0, 8);
+      return json;
+    }
+
+    async function runAnalysis(modeLabel, lines, title, duration) {
+      const err = document.getElementById("err");
+      const proc = document.getElementById("proc");
+      err.textContent = "";
+      document.getElementById("retryBtn").hidden = true;
+      proc.textContent = "Understanding source...";
+      await new Promise(r => setTimeout(r, 400));
+      proc.textContent = "Detecting meaningful moments...";
+      try {
+        const doc = await analyzeWithLLM(title, duration, lines);
+        proc.textContent = "Building creative experiments...";
+        doc.transcript = lines;
+        doc.analysisMode = modeLabel;
+        doc.id = doc.id || ("SRC-" + Date.now().toString(16).slice(-4).toUpperCase());
+        doc.duration = duration || doc.duration || 0;
+        doc.title = title || doc.title || "Untitled source";
+        sourceDoc = doc;
+        renderSourcePanel();
+        renderExps(applied, true);
+        proc.textContent = "Ready — experiments use this source.";
+        setStage("Three experiments from this source.");
+      } catch (e) {
+        proc.textContent = "";
+        err.textContent = "Couldn’t analyze that source. Your video is still here. Retry, paste a transcript, or load the demo.";
+        document.getElementById("retryBtn").hidden = false;
+      }
+    }
+
+    function loadDemo() {
+      sourceDoc = DEMO_SOURCE;
+      document.getElementById("poster").classList.remove("hide");
+      document.getElementById("vid").classList.remove("on");
+      document.getElementById("vid").removeAttribute("src");
+      document.getElementById("transcriptIn").value = DEMO_TRANSCRIPT.map(s => fmt(s.t) + " " + s.text).join("\n");
+      document.getElementById("err").textContent = "";
+      document.getElementById("proc").textContent = "";
+      renderSourcePanel();
+      renderExps(applied, false);
+      setStage("One source.");
+    }
+
+    document.getElementById("file").addEventListener("change", e => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      if (videoUrl) URL.revokeObjectURL(videoUrl);
+      videoUrl = URL.createObjectURL(f);
+      const v = document.getElementById("vid");
+      v.src = videoUrl;
+      v.classList.add("on");
+      document.getElementById("poster").classList.add("hide");
+      v.onloadedmetadata = () => {
+        document.getElementById("srcMeta").textContent = f.name + " · " + fmt(v.duration);
+      };
+      document.getElementById("analysisMode").textContent = "Video loaded — paste a transcript, then Analyze. (No silent auto-watch.)";
     });
 
+    document.getElementById("demoBtn").addEventListener("click", loadDemo);
+    document.getElementById("analyzeBtn").addEventListener("click", () => {
+      const v = document.getElementById("vid");
+      const lines = parseTranscript(document.getElementById("transcriptIn").value) ;
+      if (!lines.length) {
+        document.getElementById("err").textContent = "Paste a timestamped transcript (mm:ss line) so analysis isn’t faked from the picture alone.";
+        return;
+      }
+      const title = (document.getElementById("file").files[0] && document.getElementById("file").files[0].name) || "Uploaded source";
+      const dur = (v.duration && isFinite(v.duration)) ? v.duration : (lines[lines.length - 1].t + 20);
+      const mode = v.src ? "Transcript you provided (video preview is local; audio was not auto-transcribed)" : "Transcript only";
+      runAnalysis(mode, lines, title, dur);
+    });
+    document.getElementById("retryBtn").addEventListener("click", () => document.getElementById("analyzeBtn").click());
+
+    ["audience", "goal", "platform"].forEach(id => document.getElementById(id).addEventListener("change", enforceOne));
     document.getElementById("go").addEventListener("click", () => {
       const next = currentDraft();
       const changed = diffs(applied, next);
-      if (changed.length !== 1) {
-        setStage("Pick exactly one variable, then press the butterfly.");
-        return;
-      }
-      const key = changed[0];
+      if (changed.length !== 1) { setStage("Pick exactly one variable, then press the butterfly."); return; }
       const from = { ...applied };
-      setStage("🦋 Change one variable");
-      setTimeout(() => {
-        applied = next;
-        renderExps(applied, true);
-        showWhy(from, applied, key);
-        setStage("Same source. One changed variable. Different strategy.");
-      }, 280);
+      applied = next;
+      renderExps(applied, true);
+      showWhy(from, applied, changed[0]);
+      setStage("Same source. One changed variable. Different strategy.");
     });
 
-    renderSource();
-    renderExps(applied, false);
+    loadDemo();
     setTimeout(() => setStage("Three experiments."), 2800);
   </script>
 </body>
