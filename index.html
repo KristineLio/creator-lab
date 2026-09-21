@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubgn0k4nd7j6wds -->
+<!-- aha-build-id: bmubgvdqcydnkcwds -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -147,7 +147,7 @@
     </div>
     <div class="tag" id="stageLine">One source.</div>
   </header>
-  <div class="demo-banner"><strong>Demo Data</strong> — Creator Memory is still seeded. Source analysis can use a real file + transcript, or Load Demo Source.</div>
+  <div class="demo-banner"><strong>Demo Data</strong> gives Creator Memory a clearly labeled cold start. Your recorded results stay in this browser for now. Source analysis can use a real file + transcript, or Load Demo Source.</div>
   <p class="stage" id="stageBig">One source.</p>
   <div class="lab">
     <section class="panel">
@@ -332,6 +332,14 @@
       return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
     }
 
+    function esc(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
     function hash32(str) {
       let h = 2166136261;
       for (let i = 0; i < str.length; i++) {
@@ -368,9 +376,21 @@
       const raw = [sourceDoc.id, momentData, state.audience, state.goal, state.platform, memoryRevision(state)].join("|");
       return "EXP-" + hash32(raw).slice(0, 8);
     }
+    function experimentLineageKey(state, card) {
+      const raw = [
+        sourceDoc.id,
+        String(card?.k || ""),
+        String(card?.start || 0),
+        String(card?.mom || ""),
+        state.audience,
+        state.goal,
+        state.platform
+      ].join("|");
+      return "LIN-" + hash32(raw).slice(0, 8);
+    }
     function memoryMetricFor(state) {
       if (state.goal === "qualified") {
-        if (state.platform === "instagram") return { key: "qualifiedActionRate", label: "qualified action rate" };
+        if (state.platform === "instagram") return { key: "qualifiedActionsPer100", label: "qualified actions per 100 views" };
         return { key: "clickRate", label: "click rate" };
       }
       if (state.platform === "youtube") return { key: "completion", label: "completion" };
@@ -382,16 +402,20 @@
     function metricValue(entry, metricKey) {
       const m = entry.metrics || {};
       const views = Number(m.views) || 0;
-      if (metricKey === "qualifiedActionRate") {
+      const safeMetricNumber = value =>
+        value === null || value === undefined || value === "" ? 0 : (Number(value) || 0);
+      if (metricKey === "qualifiedActionsPer100") {
         if (!views) return null;
-        const actions = (Number(m.profileVisits) || 0) + (Number(m.follows) || 0) + (Number(m.clicks) || 0);
+        const actions = safeMetricNumber(m.profileVisits) + safeMetricNumber(m.follows) + safeMetricNumber(m.clicks);
         return (actions / views) * 100;
       }
       if (metricKey === "clickRate") {
         if (!views) return null;
-        return ((Number(m.clicks) || 0) / views) * 100;
+        return (safeMetricNumber(m.clicks) / views) * 100;
       }
-      const value = Number(m[metricKey]);
+      const raw = m[metricKey];
+      if (raw === null || raw === undefined || raw === "") return null;
+      const value = Number(raw);
       return Number.isFinite(value) ? value : null;
     }
     function creatorMemorySignal(state) {
@@ -418,6 +442,8 @@
           average: rows.reduce((sum, row) => sum + row.value, 0) / rows.length,
           count: rows.length,
           hasUserData: rows.some(row => !row.entry.isDemo),
+          userCount: rows.filter(row => !row.entry.isDemo).length,
+          demoCount: rows.filter(row => row.entry.isDemo).length,
           rows
         }))
         .sort((a, b) => b.average - a.average);
@@ -439,8 +465,8 @@
       if (index < 0) return cards;
       const next = cards.map(card => ({ ...card }));
       const selected = next.splice(index, 1)[0];
-      const basis = signal.userCount > 0
-        ? (signal.demoCount > 0 ? "Demo Data + Your Data" : "Your Data")
+      const basis = signal.best.userCount > 0
+        ? (signal.best.demoCount > 0 ? "Demo Data + Your Data" : "Your Data")
         : "Demo Data";
       selected.memory = {
         influenced: true,
@@ -599,12 +625,12 @@
       document.getElementById("timeline").innerHTML = (sourceDoc.moments || []).map(m => {
         const left = Math.min(96, Math.max(2, (m.start / dur) * 100));
         const cls = (m.type || "reveal").split(/[\/\s]/)[0];
-        return `<div class="mtick ${cls}" data-id="${m.id}" style="left:${left}%" title="${m.type}"></div>`;
+        return `<div class="mtick ${cls}" data-id="${esc(m.id)}" style="left:${left}%" title="${esc(m.type)}"></div>`;
       }).join("");
       document.getElementById("moments").innerHTML = (sourceDoc.moments || []).map(m =>
-        `<button type="button" data-id="${m.id}"><b>${fmt(m.start)}</b> · ${m.type} · ${m.description}</button>`).join("");
+        `<button type="button" data-id="${esc(m.id)}"><b>${fmt(m.start)}</b> · ${esc(m.type)} · ${esc(m.description)}</button>`).join("");
       document.getElementById("tr").innerHTML = (sourceDoc.transcript || []).map((s, i) =>
-        `<button type="button" data-i="${i}"><b>${fmt(s.t)}</b> ${s.text}</button>`).join("");
+        `<button type="button" data-i="${i}"><b>${fmt(s.t)}</b> ${esc(s.text)}</button>`).join("");
       document.querySelectorAll("#timeline .mtick, #moments button").forEach(el => {
         el.addEventListener("click", () => selectMoment(el.getAttribute("data-id")));
       });
@@ -639,21 +665,21 @@
         <div class="memory-proof">
           <div class="memory-proof-top">
             ✦ INFLUENCED BY CREATOR MEMORY
-            <span class="memory-basis">${card.memory.basis}</span>
+            <span class="memory-basis">${esc(card.memory.basis)}</span>
           </div>
-          <div>${memoryProofText(card.memory)}</div>
+          <div>${esc(memoryProofText(card.memory))}</div>
         </div>` : "";
         return `<article class="card">
-        <span class="id">${experimentId}</span>
-        <div class="kicker">${card.k}</div>
-        <div class="hook chg">“${card.hook}”</div>
+        <span class="id">${esc(experimentId)}</span>
+        <div class="kicker">${esc(card.k)}</div>
+        <div class="hook chg">“${esc(card.hook)}”</div>
         ${proof}
         <div class="meta">
-          <div><b>Hypothesis</b> <span class="chg">${card.hyp}</span></div>
-          <div><b>Evidence from source</b> ${card.ev}</div>
-          <div><b>Moment</b> <span class="chg">${card.mom}</span></div>
-          <div><b>Expected behaviour</b> ${card.beh}</div>
-          <div><b>Judge by</b> ${card.met}</div>
+          <div><b>Hypothesis</b> <span class="chg">${esc(card.hyp)}</span></div>
+          <div><b>Evidence from source</b> ${esc(card.ev)}</div>
+          <div><b>Moment</b> <span class="chg">${esc(card.mom)}</span></div>
+          <div><b>Expected behaviour</b> ${esc(card.beh)}</div>
+          <div><b>Judge by</b> ${esc(card.met)}</div>
         </div>
       </article>`;
       }).join("");
@@ -663,7 +689,8 @@
     function currentExperiments() {
       return packFor(applied).map(card => ({
         ...card,
-        experimentId: experimentFingerprint(applied, card)
+        experimentId: experimentFingerprint(applied, card),
+        lineageKey: experimentLineageKey(applied, card)
       }));
     }
     function populateMemoryExperimentSelect() {
@@ -671,7 +698,7 @@
       if (!select) return;
       const cards = currentExperiments();
       select.innerHTML = cards.map(card => `
-        <option value="${card.experimentId}">${card.k} · ${card.experimentId}</option>
+        <option value="${esc(card.experimentId)}">${esc(card.k)} · ${esc(card.experimentId)}</option>
       `).join("");
     }
     function renderMemoryFields() {
@@ -688,48 +715,76 @@
         if (el) el.style.display = instagram ? "block" : "none";
       });
     }
-    function numberValue(id) {
-      const value = Number(document.getElementById(id).value);
-      return Number.isFinite(value) ? value : 0;
+    function optionalNumberValue(id) {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const raw = String(el.value || "").trim();
+      if (raw === "") return null;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : null;
     }
     function recordCreatorResult() {
       const experimentId = document.getElementById("memoryExperiment").value;
       const experiment = currentExperiments().find(card => card.experimentId === experimentId);
       if (!experiment) return;
+      const beforeCards = currentExperiments();
+      const beforePrimary = beforeCards[0] ? { strategy: beforeCards[0].k, lineageKey: beforeCards[0].lineageKey } : null;
       const metrics = {
-        views: numberValue("memoryViews"),
-        earlyHold: numberValue("memoryEarlyHold"),
-        completion: numberValue("memoryCompletion"),
-        saves: numberValue("memorySaves"),
-        shares: numberValue("memoryShares"),
-        profileVisits: numberValue("memoryProfileVisits"),
-        follows: numberValue("memoryFollows"),
-        clicks: numberValue("memoryClicks")
+        views: optionalNumberValue("memoryViews"),
+        earlyHold: optionalNumberValue("memoryEarlyHold"),
+        completion: optionalNumberValue("memoryCompletion"),
+        saves: optionalNumberValue("memorySaves"),
+        shares: optionalNumberValue("memoryShares"),
+        profileVisits: optionalNumberValue("memoryProfileVisits"),
+        follows: optionalNumberValue("memoryFollows"),
+        clicks: optionalNumberValue("memoryClicks")
       };
-      if (metrics.views <= 0) {
+      if (metrics.views === null || metrics.views <= 0) {
         document.getElementById("memoryStatus").textContent = "Add the experiment's view count before recording the result.";
         return;
       }
-      const resultCore = [sourceDoc.id, experimentId, experiment.k, applied.audience, applied.goal, applied.platform, JSON.stringify(metrics)].join("|");
+      const requiredMetric = memoryMetricFor(applied);
+      let requiredMetricPresent = true;
+      if (requiredMetric.key === "earlyHold") requiredMetricPresent = metrics.earlyHold !== null;
+      if (requiredMetric.key === "completion") requiredMetricPresent = metrics.completion !== null;
+      if (requiredMetric.key === "clickRate") requiredMetricPresent = metrics.clicks !== null;
+      if (requiredMetric.key === "qualifiedActionsPer100") {
+        requiredMetricPresent = [metrics.profileVisits, metrics.follows, metrics.clicks].some(value => value !== null);
+      }
+      if (!requiredMetricPresent) {
+        document.getElementById("memoryStatus").textContent = "Add the metric Creator Memory uses for this experiment: " + requiredMetric.label + ".";
+        return;
+      }
+      const lineageKey = experiment.lineageKey;
       const result = {
-        id: "RES-" + hash32(resultCore).slice(0, 8),
+        id: "RES-" + hash32(lineageKey).slice(0, 8),
         isDemo: false,
         sourceId: sourceDoc.id,
         experimentId,
+        lineageKey,
         strategy: experiment.k,
         platform: applied.platform,
         audience: applied.audience,
         goal: applied.goal,
         metrics
       };
-      userMemory = userMemory.filter(entry => entry.id !== result.id);
+      userMemory = userMemory.filter(entry => entry.lineageKey !== lineageKey && entry.id !== result.id);
       userMemory.push(result);
       memoryStore.save(userMemory);
-      document.getElementById("memoryStatus").textContent = "Result recorded. Creator Memory updated the next experiment decision.";
-      document.getElementById("memoryDelta").textContent = "Memory update: same source and controls · new recorded result · recommendation re-prioritized.";
+      const afterCards = currentExperiments();
+      const afterPrimary = afterCards[0] ? { strategy: afterCards[0].k, lineageKey: afterCards[0].lineageKey } : null;
+      const recommendationChanged = !!(beforePrimary && afterPrimary && (beforePrimary.strategy !== afterPrimary.strategy || beforePrimary.lineageKey !== afterPrimary.lineageKey));
+      if (recommendationChanged) {
+        document.getElementById("memoryStatus").textContent = "Result recorded. Creator Memory changed the recommendation priority.";
+        document.getElementById("memoryDelta").textContent = "Memory update: same source and controls · new evidence · " + beforePrimary.strategy + " → " + afterPrimary.strategy + ".";
+        setStage("Same source. Same controls. New evidence. Different recommendation.");
+      } else {
+        document.getElementById("memoryStatus").textContent = "Result recorded. Creator Memory updated its evidence without changing the current top recommendation.";
+        document.getElementById("memoryDelta").textContent = "Memory update: new evidence recorded · " + (afterPrimary ? afterPrimary.strategy : "current strategy") + " remains the current priority.";
+        setStage("Same source. Same controls. New evidence. Theory updated.");
+      }
       renderCreatorMemory();
       renderExps(applied, true);
-      setStage("Same strategy controls. New memory. Different recommendation.");
     }
     function renderCreatorMemory() {
       const signal = creatorMemorySignal(applied);
@@ -742,14 +797,14 @@
           <p class="mem-item">Record experiment results to let Creator Lab learn from this creator.</p>
         `;
       } else {
-        const basis = signal.userCount > 0
-          ? (signal.demoCount > 0 ? "DEMO DATA + YOUR DATA" : "YOUR DATA")
+        const basis = signal.best.userCount > 0
+          ? (signal.best.demoCount > 0 ? "DEMO DATA + YOUR DATA" : "YOUR DATA")
           : "DEMO DATA";
         const deltaText = signal.runnerUp && signal.delta !== null
-          ? `${signal.best.strategy} is currently ${signal.delta.toFixed(1)} points above ${signal.runnerUp.strategy} on ${signal.metric.label} in the relevant recorded history.`
-          : `Early signal: ${signal.best.strategy} currently has the strongest recorded ${signal.metric.label}.`;
+          ? `${esc(signal.best.strategy)} is currently ${signal.delta.toFixed(1)} points above ${esc(signal.runnerUp.strategy)} on ${esc(signal.metric.label)} in the relevant recorded history.`
+          : `Early signal: ${esc(signal.best.strategy)} currently has the strongest recorded ${esc(signal.metric.label)}.`;
         observation.innerHTML = `
-          <div><span class="pill">${basis}</span></div>
+          <div><span class="pill">${esc(basis)}</span></div>
           <p class="mem-item">${deltaText}</p>
           <p class="mode">This is an observation from recorded experiments, not a guarantee of future performance.</p>
         `;
@@ -761,7 +816,7 @@
       list.innerHTML = recent.map(entry => `
         <div class="memory-row">
           <span class="pill">${entry.isDemo ? "DEMO DATA" : "YOUR DATA"}</span>
-          <b>${entry.strategy}</b>
+          <b>${esc(entry.strategy)}</b>
           · ${LABELS.platform[entry.platform]}
           · ${Number(entry.metrics?.earlyHold || 0).toFixed(1)}% early hold
           · ${Number(entry.metrics?.completion || 0).toFixed(1)}% completion
@@ -798,8 +853,8 @@
       const afterId = experimentFingerprint(to, afterCard);
       document.getElementById("changedVar").textContent = "Changed variable: " + key[0].toUpperCase() + key.slice(1);
       document.getElementById("midArrow").textContent = "→ " + key + " →";
-      document.getElementById("before").innerHTML = `<div class="kicker">Before</div><p class="hook" style="font-size:18px">“${beforeCard.hook}”</p><p class="meta">${beforeCard.k} · ${beforeCard.mom}<br>${beforeId}</p>`;
-      document.getElementById("after").innerHTML = `<div class="kicker">After</div><p class="hook" style="font-size:18px">“${afterCard.hook}”</p><p class="meta">${afterCard.k} · ${afterCard.mom}<br>${afterId}</p>`;
+      document.getElementById("before").innerHTML = `<div class="kicker">Before</div><p class="hook" style="font-size:18px">“${esc(beforeCard.hook)}”</p><p class="meta">${esc(beforeCard.k)} · ${esc(beforeCard.mom)}<br>${esc(beforeId)}</p>`;
+      document.getElementById("after").innerHTML = `<div class="kicker">After</div><p class="hook" style="font-size:18px">“${esc(afterCard.hook)}”</p><p class="meta">${esc(afterCard.k)} · ${esc(afterCard.mom)}<br>${esc(afterId)}</p>`;
       document.getElementById("reason").textContent = WHY[key][to[key]];
       document.getElementById("why").classList.add("show");
     }
