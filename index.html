@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubfpr36jm8shanc -->
+<!-- aha-build-id: bmubfwwkxoy82qgnl -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -486,7 +486,10 @@
         const raw = localStorage.getItem(key);
         if (!raw) return null;
         const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.moments) && parsed.moments.length) return parsed;
+        if (parsed && Array.isArray(parsed.moments) && parsed.moments.length && String(parsed.analysisMode || "").includes("SkyCastle server analysis")) {
+          return parsed;
+        }
+        localStorage.removeItem(key);
       } catch {}
       return null;
     }
@@ -529,7 +532,6 @@
         moments: localMoments(lines),
         analysisMode: "Local transcript parse · static fallback"
       };
-      writeAnalysisCache(cacheKey, fallback);
       return fallback;
     }
 
