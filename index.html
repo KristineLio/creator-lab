@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubl5h9uixk2jpos -->
+<!-- aha-build-id: bmubmjtdk8x54ubvb -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -47,6 +47,32 @@
       padding: 7px 12px; font: 12px "IBM Plex Sans", sans-serif; cursor: pointer;
     }
     .src-actions input[type=file] { display: none; }
+    .analysis-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 10px 0 8px;
+    }
+    .analysis-actions button {
+      border: 1px solid var(--line);
+      background: #1c1916;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 9px 13px;
+      font: inherit;
+      cursor: pointer;
+    }
+    .analysis-actions .analyze-primary {
+      flex: 1;
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #1c1916;
+      font-weight: 600;
+    }
+    .analysis-actions button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
     textarea.tr-in {
       width: 100%; min-height: 72px; background: #1c1916; color: var(--text); border: 1px solid var(--line);
       border-radius: 10px; padding: 8px; font: 12px "IBM Plex Mono", monospace; margin: 6px 0;
@@ -380,21 +406,22 @@
       <h2>Source</h2>
       <div class="src-actions">
         <label>Choose video<input id="file" type="file" accept="video/*" /></label>
-        <button type="button" id="demoBtn">Load Demo Source</button>
-        <button type="button" id="analyzeBtn">Analyze source</button>
-        <button type="button" id="retryBtn" hidden>Retry analysis</button>
+        <button type="button" id="demoBtn">Reset to Demo Source</button>
       </div>
       <div class="preview" id="poster"><div class="monitor"><span></span><em></em><em></em></div></div>
       <video id="vid" class="source-vid" controls playsinline></video>
       <p class="source-line" id="srcMeta">Weather App Build · 04:12 · coding session</p>
       <p class="mode" id="analysisMode">Analysis source: Demo transcript (built-in)</p>
-      <p class="proc" id="proc"></p>
-      <p class="err" id="err"></p>
       <label class="mode" for="transcriptIn">Timestamped transcript / source notes</label>
       <p class="meta">For silent footage, describe the visible event at each timestamp.</p>
-      <textarea class="tr-in" id="transcriptIn" placeholder="00:20 Connection error appears...
-00:48 Weather loads successfully...
-01:43 App switches into dark mode..."></textarea>
+      <p class="mode">Example: 00:20 Connection error appears…</p>
+      <textarea class="tr-in" id="transcriptIn" placeholder="Paste timestamped source notes here…"></textarea>
+      <div class="analysis-actions">
+        <button type="button" id="analyzeBtn" class="analyze-primary">Analyze this source</button>
+        <button type="button" id="retryBtn" hidden>Retry analysis</button>
+      </div>
+      <p class="proc" id="proc"></p>
+      <p class="err" id="err"></p>
       <div class="timeline" id="timeline"></div>
       <div class="moments" id="moments"></div>
       <h2 style="margin-top:16px">Transcript</h2>
@@ -446,7 +473,8 @@
           <div class="memory-observation" id="memoryObservation"></div>
           <div class="memory-list" id="memoryList"></div>
           <div class="memory-actions">
-            <button type="button" id="clearMemoryBtn">Clear my results</button>
+            <button type="button" id="clearMemoryBtn">Clear my saved results</button>
+            <p class="mode" id="clearMemoryHint">Demo Data is the labeled cold-start example and is not part of your saved results.</p>
           </div>
         </div>
         <div class="memory-entry-column">
@@ -644,8 +672,12 @@
       const analyze = document.getElementById("analyzeBtn");
       if (analyze) {
         const hasVideo = !!document.getElementById("vid").src;
-        if (hasVideo && !sourceReady) {
+        if (judgeMode) {
+          analyze.disabled = true;
+        } else if (hasVideo && !sourceReady) {
           analyze.disabled = lines.length === 0;
+        } else {
+          analyze.disabled = false;
         }
       }
     }
@@ -1242,6 +1274,23 @@
           · ${esc(metricSummaryForEntry(entry))}
         </div>
       `).join("");
+      syncClearMemoryButton();
+    }
+    function syncClearMemoryButton() {
+      const button = document.getElementById("clearMemoryBtn");
+      if (!button) return;
+      const count = userMemory.length;
+      if (judgeMode) {
+        button.disabled = true;
+        return;
+      }
+      if (count === 0) {
+        button.disabled = true;
+        button.textContent = "No saved results to clear";
+      } else {
+        button.disabled = false;
+        button.textContent = count === 1 ? "Clear 1 saved result" : ("Clear " + count + " saved results");
+      }
     }
 
     function currentDraft() {
@@ -1541,9 +1590,22 @@
       }
     });
     document.getElementById("clearMemoryBtn").addEventListener("click", () => {
+      const count = userMemory.length;
+      if (!count) {
+        const hint = document.getElementById("clearMemoryHint");
+        if (hint) {
+          hint.textContent = "There are no saved creator results to clear. Demo Data stays as the labeled cold-start example.";
+        }
+        syncClearMemoryButton();
+        return;
+      }
       userMemory = [];
       memoryStore.clearUserData();
-      document.getElementById("memoryStatus").textContent = "Your recorded results were cleared. Demo Data remains labeled and available.";
+      document.getElementById("memoryStatus").textContent = count === 1 ? "1 saved result cleared." : (count + " saved results cleared.");
+      const hint = document.getElementById("clearMemoryHint");
+      if (hint) {
+        hint.textContent = "Your saved results were cleared. Demo Data remains because it is the labeled cold-start example.";
+      }
       document.getElementById("memoryDelta").textContent = "";
       renderCreatorMemory();
       if (sourceReady) {
@@ -1593,6 +1655,7 @@
         const el = document.getElementById(id);
         if (el) el.disabled = judgeRunning;
       });
+      syncClearMemoryButton();
     }
     function prepareJudgeDemo() {
       clearJudgeTimers();
