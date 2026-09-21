@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubhet9obemz40dj -->
+<!-- aha-build-id: bmubho9vgjbjbfrb2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -407,6 +407,8 @@
     let judgeDemoMemory = [];
     let judgeTimers = [];
     let judgeDemoRunId = 0;
+    let judgeRunning = false;
+    let judgeMemoryChanged = false;
     function activeUserMemory() {
       return judgeMode ? judgeDemoMemory : userMemory;
     }
@@ -532,6 +534,7 @@
           hasUserData: rows.some(row => !row.entry.isDemo),
           userCount: rows.filter(row => !row.entry.isDemo).length,
           demoCount: rows.filter(row => row.entry.isDemo).length,
+          judgeDemoCount: rows.filter(row => row.entry.isJudgeDemo).length,
           rows
         }))
         .sort((a, b) => b.average - a.average);
@@ -553,9 +556,12 @@
       if (index < 0) return cards;
       const next = cards.map(card => ({ ...card }));
       const selected = next.splice(index, 1)[0];
-      const basis = signal.best.userCount > 0
-        ? (signal.best.demoCount > 0 ? "Demo Data + Your Data" : "Your Data")
-        : "Demo Data";
+      let basis = "Demo Data";
+      if (signal.best.judgeDemoCount > 0) {
+        basis = signal.best.demoCount > signal.best.judgeDemoCount ? "Demo Data + Demo Result" : "Demo Result";
+      } else if (signal.best.userCount > 0) {
+        basis = signal.best.demoCount > 0 ? "Demo Data + Your Data" : "Your Data";
+      }
       selected.memory = {
         influenced: true,
         basis,
@@ -1204,7 +1210,8 @@
 
     function judgeLater(runId, delay, fn) {
       const timer = setTimeout(() => {
-        if (!judgeMode || runId !== judgeDemoRunId) return;
+        judgeTimers = judgeTimers.filter(item => item !== timer);
+        if (!judgeMode || !judgeRunning || runId !== judgeDemoRunId) return;
         fn();
       }, delay);
       judgeTimers.push(timer);
@@ -1228,22 +1235,25 @@
       if (step) step.textContent = text;
       setStage(text);
     }
-    function setJudgeInteractionLock(locked) {
-      ["recordResultBtn", "clearMemoryBtn", "analyzeBtn", "demoBtn"].forEach(id => {
+    function syncJudgeControls() {
+      const sandboxLocked = judgeMode;
+      ["recordResultBtn", "clearMemoryBtn", "analyzeBtn", "retryBtn", "demoBtn"].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.disabled = locked;
+        if (el) el.disabled = sandboxLocked;
       });
       const file = document.getElementById("file");
-      if (file) file.disabled = locked;
+      if (file) file.disabled = sandboxLocked;
       ["audience", "goal", "platform", "go"].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.disabled = locked;
+        if (el) el.disabled = judgeRunning;
       });
     }
     function prepareJudgeDemo() {
       clearJudgeTimers();
       clearJudgeFocus();
       judgeMode = true;
+      judgeRunning = true;
+      judgeMemoryChanged = false;
       judgeDemoMemory = [];
       applied = { audience: "beginners", goal: "views", platform: "tiktok" };
       document.getElementById("audience").value = applied.audience;
@@ -1259,13 +1269,17 @@
       renderMemoryFields();
       renderCreatorMemory();
       renderExps(applied, false);
-      setJudgeInteractionLock(true);
+      syncJudgeControls();
       setJudgeStep("One source.");
     }
     function applyJudgeDemoResult() {
-      const cards = currentExperiments();
-      const curiosity = cards.find(card => String(card.k).toUpperCase() === "CURIOSITY");
-      if (!curiosity) return;
+      const beforeCards = currentExperiments();
+      const beforePrimary = beforeCards[0] || null;
+      const curiosity = beforeCards.find(card => String(card.k || "").toUpperCase() === "CURIOSITY");
+      if (!curiosity) {
+        document.getElementById("memoryStatus").textContent = "Demo could not find a Curiosity experiment.";
+        return false;
+      }
       const demoResult = {
         id: "JUDGE-DEMO-CURIOSITY",
         isDemo: true,
@@ -1281,8 +1295,19 @@
       };
       judgeDemoMemory = judgeDemoMemory.filter(entry => entry.id !== demoResult.id);
       judgeDemoMemory.push(demoResult);
-      document.getElementById("memoryDelta").textContent = "Demo result: same source and controls · new evidence · Transformation → Curiosity.";
-      document.getElementById("memoryStatus").textContent = "Demo result recorded temporarily. Nothing was saved to your Creator Memory.";
+      const afterCards = currentExperiments();
+      const afterPrimary = afterCards[0] || null;
+      const changed = !!(beforePrimary && afterPrimary && (beforePrimary.k !== afterPrimary.k || beforePrimary.lineageKey !== afterPrimary.lineageKey));
+      const beforeName = beforePrimary ? beforePrimary.k : "previous priority";
+      const afterName = afterPrimary ? afterPrimary.k : "new priority";
+      if (changed) {
+        document.getElementById("memoryDelta").textContent = "Demo result: same source and controls · new evidence · " + beforeName + " → " + afterName + ".";
+        document.getElementById("memoryStatus").textContent = "Demo result recorded temporarily. Creator Memory changed the recommendation from the evidence.";
+        return true;
+      }
+      document.getElementById("memoryDelta").textContent = "Demo result: new evidence was added, but the current priority did not change.";
+      document.getElementById("memoryStatus").textContent = "Demo calibration warning: the temporary result did not change the recommendation.";
+      return false;
     }
     function runJudgeDemo() {
       judgeDemoRunId += 1;
@@ -1314,45 +1339,65 @@
         focusJudge("#memoryPanel");
       });
       judgeLater(runId, 11800, () => {
-        applyJudgeDemoResult();
+        judgeMemoryChanged = applyJudgeDemoResult();
         setJudgeStep("Same controls. New evidence.");
         focusJudge("#memoryPanel");
       });
       judgeLater(runId, 14500, () => {
         renderCreatorMemory();
         renderExps(applied, true);
-        setJudgeStep("Creator Memory updated the theory.");
+        setJudgeStep(judgeMemoryChanged ? "Creator Memory updated the theory." : "New evidence updated Creator Memory.");
         focusJudge("#exps");
       });
       judgeLater(runId, 17600, () => {
-        setJudgeStep("Same source. Same controls. New evidence. Different recommendation.");
+        setJudgeStep(judgeMemoryChanged ? "Same source. Same controls. New evidence. Different recommendation." : "Same source. Same controls. New evidence. Theory updated.");
         clearJudgeFocus();
-        setJudgeInteractionLock(false);
-        document.getElementById("judgeDemoBtn").textContent = "Replay 20s Demo";
+        judgeRunning = false;
+        clearJudgeTimers();
+        syncJudgeControls();
+        const button = document.getElementById("judgeDemoBtn");
+        button.textContent = "Replay 20s Demo";
+        button.classList.remove("running");
       });
     }
     function stopJudgeDemo() {
       judgeDemoRunId += 1;
+      judgeRunning = false;
       clearJudgeTimers();
       clearJudgeFocus();
-      setJudgeInteractionLock(false);
-      document.getElementById("judgeDemoBtn").classList.remove("running");
-      document.getElementById("judgeDemoBtn").textContent = "▶ 20s Demo";
+      syncJudgeControls();
+      const button = document.getElementById("judgeDemoBtn");
+      button.classList.remove("running");
+      button.textContent = "Replay 20s Demo";
+      setJudgeStep("Demo stopped. Replay or reset.");
     }
     function resetJudgeDemo() {
-      stopJudgeDemo();
+      judgeDemoRunId += 1;
+      clearJudgeTimers();
+      clearJudgeFocus();
+      judgeRunning = false;
       judgeMode = false;
       judgeDemoMemory = [];
+      applied = { audience: "beginners", goal: "views", platform: "tiktok" };
+      document.getElementById("audience").value = applied.audience;
+      document.getElementById("goal").value = applied.goal;
+      document.getElementById("platform").value = applied.platform;
       document.getElementById("judgeRibbon").hidden = true;
+      const button = document.getElementById("judgeDemoBtn");
+      button.classList.remove("running");
+      button.textContent = "▶ 20s Demo";
+      syncJudgeControls();
       loadDemo();
       renderMemoryFields();
       renderCreatorMemory();
       renderExps(applied, false);
+      document.getElementById("memoryDelta").textContent = "";
+      document.getElementById("why").classList.remove("show");
       setStage("Three experiments.");
     }
     document.getElementById("judgeResetBtn").addEventListener("click", resetJudgeDemo);
     document.getElementById("judgeDemoBtn").addEventListener("click", () => {
-      if (judgeMode && judgeTimers.length) {
+      if (judgeRunning) {
         stopJudgeDemo();
         return;
       }
