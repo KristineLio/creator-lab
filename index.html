@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubjdk4h09d6o5xi -->
+<!-- aha-build-id: bmubjy6hvcpql4stp -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -578,11 +578,44 @@
       sourceReady = ready;
       const go = document.getElementById("go");
       const record = document.getElementById("recordResultBtn");
+      const experimentSelect = document.getElementById("memoryExperiment");
       if (go) {
         go.disabled = !ready || judgeRunning;
       }
       if (record) {
         record.disabled = !ready || judgeMode || recordResultLocked;
+      }
+      if (experimentSelect) {
+        experimentSelect.disabled = !ready || judgeMode;
+      }
+    }
+    function clearSourceDerivedUI() {
+      const timeline = document.getElementById("timeline");
+      const moments = document.getElementById("moments");
+      const transcriptList = document.getElementById("tr");
+      const experimentSelect = document.getElementById("memoryExperiment");
+      if (timeline) {
+        timeline.innerHTML = "";
+      }
+      if (moments) {
+        moments.innerHTML = `
+          <p class="mode">
+            Analyze this source to detect grounded moments.
+          </p>
+        `;
+      }
+      if (transcriptList) {
+        transcriptList.innerHTML = `
+          <p class="mode">
+            Current source notes will appear here after analysis.
+          </p>
+        `;
+      }
+      if (experimentSelect) {
+        experimentSelect.innerHTML = `
+          <option value="">Analyze source first</option>
+        `;
+        experimentSelect.disabled = true;
       }
     }
     function renderSourcePending() {
@@ -1383,6 +1416,7 @@
     document.getElementById("file").addEventListener("change", e => {
       const f = e.target.files && e.target.files[0];
       if (!f) return;
+      document.getElementById("srcMeta").textContent = f.name + " · loading duration…";
       if (videoUrl) URL.revokeObjectURL(videoUrl);
       videoUrl = URL.createObjectURL(f);
       const v = document.getElementById("vid");
@@ -1395,6 +1429,7 @@
         transcriptOrigin = "empty";
       }
       setSourceReady(false);
+      clearSourceDerivedUI();
       renderSourcePending();
       document.getElementById("why").classList.remove("show");
       document.getElementById("memoryDelta").textContent = "";
