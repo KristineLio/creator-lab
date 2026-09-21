@@ -17,96 +17,65 @@
       --text: #f3eadb;
       --muted: #b7ab98;
       --accent: #e8a35a;
-      --warn: #d46a4c;
-      --ok: #8fbf8a;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--text); font-family: "IBM Plex Sans", system-ui, sans-serif; }
-    body { min-height: 100vh; }
-    header.top {
-      display: flex; align-items: baseline; justify-content: space-between;
-      padding: 20px 28px 8px; gap: 16px;
-    }
-    .brand { font-family: "Instrument Serif", Georgia, serif; font-size: 28px; letter-spacing: -0.02em; }
+    header.top { display: flex; align-items: baseline; justify-content: space-between; padding: 20px 28px 8px; gap: 16px; }
+    .brand { font-family: "Instrument Serif", Georgia, serif; font-size: 28px; }
     .tag { color: var(--muted); font-size: 13px; }
-    .demo-banner {
-      margin: 0 28px 16px; padding: 10px 14px; border: 1px dashed var(--line);
-      border-radius: 10px; color: var(--muted); font-size: 12px;
-    }
+    .demo-banner { margin: 0 28px 16px; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 12px; }
     .demo-banner strong { color: var(--accent); }
-    .lab {
-      display: grid;
-      grid-template-columns: 280px 1fr 280px;
-      gap: 16px;
-      padding: 0 28px 20px;
-    }
-    @media (max-width: 1100px) {
-      .lab { grid-template-columns: 1fr; }
-    }
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 16px;
-    }
+    .lab { display: grid; grid-template-columns: 280px 1fr 280px; gap: 16px; padding: 0 28px 20px; }
+    @media (max-width: 1100px) { .lab { grid-template-columns: 1fr; } }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
     h2 { font-family: "Instrument Serif", Georgia, serif; font-size: 20px; font-weight: 400; margin: 0 0 12px; }
-    .video {
-      width: 100%; height: 140px; object-fit: cover; border-radius: 12px;
-      background: #3a342e;
+    .preview {
+      width: 100%; height: 140px; border-radius: 12px; position: relative; overflow: hidden;
+      background: linear-gradient(145deg, #3a3229 0%, #2a241e 55%, #4a3a2c 100%);
     }
+    .preview::after {
+      content: "SOURCE  00:43";
+      position: absolute; left: 12px; bottom: 10px;
+      font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; color: #f3eadb;
+    }
+    .monitor {
+      position: absolute; left: 18%; top: 18%; width: 64%; height: 52%;
+      border-radius: 6px; background: #1a1714; border: 1px solid rgba(243,234,219,0.2);
+    }
+    .monitor span { display: block; height: 6px; margin: 10px 10px 0; background: #e8a35a; width: 40%; border-radius: 3px; }
+    .monitor em { display: block; height: 4px; margin: 8px 10px 0; background: #5c5348; width: 70%; border-radius: 2px; font-style: normal; }
     .source-line { font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
     .timeline { display: flex; gap: 4px; height: 8px; margin-bottom: 12px; }
-    .tick { flex: 1; background: #3d372f; border-radius: 4px; cursor: pointer; }
+    .tick { flex: 1; background: #3d372f; border-radius: 4px; }
     .tick.on { background: var(--accent); }
     .moments, .tr { font-size: 12px; color: var(--muted); line-height: 1.55; }
     .moments button, .tr button {
-      display: block; width: 100%; text-align: left; background: transparent;
-      border: 0; color: inherit; padding: 6px 0; cursor: pointer; font: inherit;
+      display: block; width: 100%; text-align: left; background: transparent; border: 0; color: inherit; padding: 6px 0; cursor: pointer; font: inherit;
     }
-    .moments button:hover { color: var(--text); }
     .exps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     @media (max-width: 900px) { .exps { grid-template-columns: 1fr; } }
-    .card {
-      background: var(--lift);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 16px;
-      min-height: 280px;
-      position: relative;
-      overflow: hidden;
-    }
+    .card { background: var(--lift); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-height: 280px; }
     .card.branching { animation: branch 0.7s ease; }
-    @keyframes branch {
-      0% { transform: translateX(0); opacity: 1; }
-      40% { transform: translateX(-8px); opacity: 0.45; }
-      100% { transform: translateX(0); opacity: 1; }
-    }
+    @keyframes branch { 0% { transform: translateX(0); opacity: 1; } 40% { transform: translateX(-8px); opacity: 0.45; } 100% { transform: none; opacity: 1; } }
     .card.flash .chg { background: rgba(232,163,90,0.18); }
     .kicker { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--accent); }
     .id { float: right; font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted); }
     .hook { font-family: "Instrument Serif", Georgia, serif; font-size: 22px; margin: 10px 0 12px; line-height: 1.2; }
     .meta { font-size: 12px; color: var(--muted); line-height: 1.6; }
     .meta b { color: var(--text); font-weight: 500; }
-    .chg { transition: background 0.4s; border-radius: 6px; padding: 1px 4px; }
+    .chg { border-radius: 6px; padding: 1px 4px; }
     .ctrl label { display: block; font-size: 11px; color: var(--muted); margin: 10px 0 6px; letter-spacing: 0.08em; text-transform: uppercase; }
-    select {
-      width: 100%; background: #1c1916; color: var(--text); border: 1px solid var(--line);
-      border-radius: 10px; padding: 10px; font: inherit;
-    }
-    .butterfly {
-      width: 100%; margin-top: 18px; padding: 16px 12px;
-      background: var(--accent); color: #1c1916; border: 0; border-radius: 999px;
-      font-weight: 600; font-size: 15px; cursor: pointer; font-family: inherit;
-    }
-    .butterfly:hover { filter: brightness(1.06); }
+    select { width: 100%; background: #1c1916; color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: inherit; }
+    .butterfly { width: 100%; margin-top: 18px; padding: 16px 12px; background: var(--accent); color: #1c1916; border: 0; border-radius: 999px; font-weight: 600; font-size: 15px; cursor: pointer; font-family: inherit; }
     .locked { font-size: 12px; color: var(--muted); margin-top: 10px; }
     .lower { padding: 0 28px 28px; display: grid; gap: 16px; }
     .why { display: none; }
     .why.show { display: block; animation: rise 0.5s ease; }
     @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-    .ba { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: start; }
+    .ba { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; }
     @media (max-width: 700px) { .ba { grid-template-columns: 1fr; } }
-    .arrow { align-self: center; color: var(--accent); font-size: 22px; }
+    .arrow { align-self: center; color: var(--accent); font-size: 22px; text-align: center; }
+    .changed-var { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--accent); margin-bottom: 12px; }
     .mem-item { font-size: 14px; line-height: 1.55; color: var(--muted); }
     .pill { display: inline-block; font-size: 10px; letter-spacing: 0.1em; border: 1px solid var(--accent); color: var(--accent); padding: 2px 8px; border-radius: 999px; margin-right: 8px; }
     .stage { font-family: "Instrument Serif", Georgia, serif; font-size: 18px; color: var(--accent); min-height: 28px; padding: 0 28px 8px; }
@@ -123,9 +92,9 @@
   <div class="demo-banner"><strong>Demo Data</strong> — seeded coding-project source and historical memory. Entered results (none yet) would appear separately from this sample history.</div>
   <p class="stage" id="stageBig">One source.</p>
   <div class="lab">
-    <section class="panel" id="source">
+    <section class="panel">
       <h2>Source</h2>
-      <img class="video" alt="laptop on a desk showing a weather app coding session in a warm studio" src="source.jpg" />
+      <div class="preview" role="img" aria-label="Self-contained preview of a weather-app coding session on a laptop"><div class="monitor"><span></span><em></em><em></em></div></div>
       <p class="source-line">Weather App Build · 04:12 · coding session</p>
       <div class="timeline" id="timeline"></div>
       <div class="moments" id="moments"></div>
@@ -153,16 +122,17 @@
         <option value="tiktok">TikTok</option>
         <option value="youtube">YouTube</option>
       </select>
-      <p class="locked">Change exactly one variable, then run the butterfly.</p>
+      <p class="locked" id="lockHint">Change exactly one variable from the applied state, then press the butterfly.</p>
       <button class="butterfly" id="go" type="button">🦋 Change one variable</button>
     </aside>
   </div>
   <div class="lower">
     <section class="panel why" id="why">
       <h2>Why it changed</h2>
+      <div class="changed-var" id="changedVar"></div>
       <div class="ba">
         <div id="before"></div>
-        <div class="arrow">→</div>
+        <div class="arrow" id="midArrow">→</div>
         <div id="after"></div>
       </div>
       <p class="mem-item" id="reason" style="margin-top:16px"></p>
@@ -177,6 +147,7 @@
   <script>
     const SOURCE = {
       id: "weather-app-build",
+      memory: "demo-v1",
       moments: [
         { t: "00:08", label: "Blank screen, first save" },
         { t: "00:43", label: "Working weather UI reveal" },
@@ -193,67 +164,137 @@
       ]
     };
 
-    const VARIANTS = {
-      beginners: {
-        fingerprint: "EXP-7B31",
-        cards: [
-          { k: "TRANSFORMATION", hyp: "Showing the finished result immediately will increase early retention.", ev: "Strongest visual reveal at 00:43.", mom: "00:43–00:58", hook: "I finally built my first working weather app.", beh: "Reduce first-three-second drop.", met: "3s retention + average watch time" },
-          { k: "CURIOSITY", hyp: "Opening before the result holds beginners through the build.", ev: "Pause before run at 01:12.", mom: "01:12–01:28", hook: "Don’t refresh yet.", beh: "Increase hold through the first payoff.", met: "Average watch time" },
-          { k: "FAILURE", hyp: "A small break moment humanizes the tutorial.", ev: "Blank first save at 00:08.", mom: "00:08–00:22", hook: "This started as an empty file.", beh: "Build identification with the creator.", met: "Follows" }
-        ]
+    const LABELS = {
+      audience: { beginners: "Beginners", experienced: "Experienced Developers" },
+      goal: { views: "Views", qualified: "Qualified Users" },
+      platform: { tiktok: "TikTok", youtube: "YouTube" }
+    };
+
+    function fingerprint(s) {
+      const raw = [SOURCE.id, s.audience, s.goal, s.platform, SOURCE.memory].join("|");
+      let h = 0;
+      for (let i = 0; i < raw.length; i++) h = (h * 33 + raw.charCodeAt(i)) >>> 0;
+      return "EXP-" + h.toString(16).slice(-4).toUpperCase();
+    }
+
+    function packFor(s) {
+      const a = s.audience, g = s.goal, p = s.platform;
+      const tt = p === "tiktok";
+      const views = g === "views";
+      const beg = a === "beginners";
+
+      const trans = {
+        k: "TRANSFORMATION",
+        hyp: beg
+          ? (views ? "A finished-app reveal will stop the first-three-second drop." : "A finished-app reveal plus a clear ‘what you can ship’ promise will convert learners.")
+          : (views ? "Even seniors will stay if the result is shockingly complete in one beat." : "Seniors convert when the result is framed as a decision they can reuse."),
+        ev: "Strongest visual reveal at 00:43.",
+        mom: tt ? "00:43–00:51" : "00:43–00:58",
+        hook: beg ? "I finally built my first working weather app." : "The UI wasn’t the hard part. Shipping the request was.",
+        beh: views ? (tt ? "Stop the 3-second swipe." : "Hold through the first payoff.") : "Click through to the build notes.",
+        met: views ? (tt ? "3-second retention" : "Average view duration") : "Clicks + qualified follows"
+      };
+      const cur = {
+        k: "CURIOSITY",
+        hyp: tt
+          ? "Open before the result so the swipe never happens."
+          : "Sustain curiosity across a longer setup/payoff so completion rises.",
+        ev: "Pause before run at 01:12.",
+        mom: tt ? "01:12–01:20" : "01:12–01:36",
+        hook: beg ? "Don’t refresh yet." : "The request never even left the browser.",
+        beh: views ? (tt ? "Hold the first 3 seconds." : "Increase average view duration.") : "Seek the explanation, then click.",
+        met: views ? (tt ? "3-second retention" : "Average view duration / completion") : "Clicks / conversions"
+      };
+      const fail = {
+        k: "FAILURE",
+        hyp: views
+          ? (beg ? "A small break humanizes the tutorial and keeps people watching." : "A real break moment is more shareable than a clean demo.")
+          : "Technical evidence at the break is what qualified users trust.",
+        ev: beg && views ? "Blank first save at 00:08." : "Self-contained technical explanation at 02:11.",
+        mom: beg && views ? (tt ? "00:08–00:16" : "00:08–00:22") : (tt ? "02:11–02:20" : "02:11–02:29"),
+        hook: beg && views ? "This started as an empty file." : "This API decision broke the entire request flow.",
+        beh: views ? "Identification, then continued watch." : "Credibility, then click to the fix.",
+        met: views ? (tt ? "3-second retention" : "Completion rate") : "Qualified clicks"
+      };
+
+      let order;
+      if (!views) order = [fail, cur, trans];
+      else if (!tt) order = [cur, trans, fail];
+      else if (!beg) order = [fail, trans, cur];
+      else order = [trans, cur, fail];
+      return order;
+    }
+
+    const WHY = {
+      audience: {
+        experienced: "Audience changed. Experienced developers value the implementation decision more than the finished-app reveal, so Creator Lab promoted the 02:11 debugging beat and a more specific hook.",
+        beginners: "Audience changed. Beginners need a finished, understandable result, so Creator Lab returned to the 00:43 reveal and a first-app hook."
       },
-      experienced: {
-        fingerprint: "EXP-4F19",
-        cards: [
-          { k: "FAILURE", hyp: "Senior viewers stay for the implementation decision, not the pretty UI.", ev: "Self-contained technical explanation at 02:11.", mom: "02:11–02:29", hook: "This API decision broke the entire request flow.", beh: "Qualified viewers continue past the hook.", met: "Qualified clicks + completion" },
-          { k: "CURIOSITY", hyp: "Hide the fix; show the broken request first.", ev: "CORS / path failure cluster at 02:11.", mom: "02:11–02:40", hook: "The request never even left the browser.", beh: "Comments from other engineers.", met: "Comments + follows" },
-          { k: "TRANSFORMATION", hyp: "A quiet fix landing still works if the cost is visible first.", ev: "Fix lands at 03:02 after the break.", mom: "03:02–03:18", hook: "That’s the bug. That’s the whole video.", beh: "Completion among experienced viewers.", met: "Completion rate" }
-        ]
+      goal: {
+        qualified: "Goal changed. Views optimize for retention and curiosity; qualified users need technical evidence, problem specificity, and a click. Creator Lab promoted the API-break moment and conversion metrics.",
+        views: "Goal changed. The objective is now reach, not conversion, so Creator Lab prioritized broader transformation/curiosity openings and retention metrics."
+      },
+      platform: {
+        youtube: "Platform changed. YouTube rewards setup/payoff and completion, so windows got longer and the metric shifted from 3-second retention to average view duration.",
+        tiktok: "Platform changed. TikTok punishes a slow open, so Creator Lab shortened the payoff window and judged the cut on 3-second retention."
       }
     };
 
-    const WHY = {
-      experienced: "Experienced developers are more likely to value the implementation decision and debugging insight than the finished-app reveal. The source contains a self-contained technical explanation at 02:11, so Creator Lab promoted that moment.",
-      beginners: "Beginners respond to a finished, understandable result. The strongest visual reveal is at 00:43, so Creator Lab returned to a transformation-first opening."
-    };
-
     let applied = { audience: "beginners", goal: "views", platform: "tiktok" };
-    let pendingVar = null;
 
-    function fingerprint(state) {
-      return state.audience === "experienced" ? "EXP-4F19" : "EXP-7B31";
+    function currentDraft() {
+      return {
+        audience: document.getElementById("audience").value,
+        goal: document.getElementById("goal").value,
+        platform: document.getElementById("platform").value
+      };
+    }
+
+    function diffs(a, b) {
+      return ["audience", "goal", "platform"].filter(k => a[k] !== b[k]);
+    }
+
+    function enforceOne() {
+      const next = currentDraft();
+      const changed = diffs(applied, next);
+      if (changed.length > 1) {
+        const keep = changed[0];
+        ["audience", "goal", "platform"].forEach(k => {
+          if (k !== keep) document.getElementById(k).value = applied[k];
+        });
+        document.getElementById("lockHint").textContent = "Only one variable can change. Extra controls were reset.";
+      } else if (changed.length === 1) {
+        document.getElementById("lockHint").textContent = "Ready: " + changed[0] + " will be the only change.";
+      } else {
+        document.getElementById("lockHint").textContent = "Change exactly one variable from the applied state, then press the butterfly.";
+      }
     }
 
     function renderSource() {
       document.getElementById("timeline").innerHTML = SOURCE.moments.map((_, i) =>
-        `<div class="tick${i===1?" on":""}" data-i="${i}"></div>`).join("");
+        `<div class="tick${i === 1 ? " on" : ""}"></div>`).join("");
       document.getElementById("moments").innerHTML = SOURCE.moments.map(m =>
         `<button type="button"><b>${m.t}</b> · ${m.label}</button>`).join("");
       document.getElementById("tr").innerHTML = SOURCE.transcript.map(s =>
         `<button type="button"><b>${s.t}</b> ${s.text}</button>`).join("");
     }
 
-    function cardHtml(c, fp, highlight) {
-      const h = highlight ? " chg" : "";
-      return `<article class="card" data-k="${c.k}">
+    function renderExps(state, animate) {
+      const cards = packFor(state);
+      const fp = fingerprint(state);
+      const root = document.getElementById("exps");
+      root.innerHTML = cards.map(c => `<article class="card">
         <span class="id">${fp}</span>
         <div class="kicker">${c.k}</div>
-        <div class="hook${h}">“${c.hook}”</div>
+        <div class="hook chg">“${c.hook}”</div>
         <div class="meta">
-          <div><b>Hypothesis</b> <span class="${h}">${c.hyp}</span></div>
+          <div><b>Hypothesis</b> <span class="chg">${c.hyp}</span></div>
           <div><b>Evidence</b> ${c.ev}</div>
-          <div><b>Moment</b> <span class="${h}">${c.mom}</span></div>
+          <div><b>Moment</b> <span class="chg">${c.mom}</span></div>
           <div><b>Expected behaviour</b> ${c.beh}</div>
           <div><b>Judge by</b> ${c.met}</div>
         </div>
-      </article>`;
-    }
-
-    function renderExps(state, animate) {
-      const pack = VARIANTS[state.audience];
-      const fp = fingerprint(state);
-      const root = document.getElementById("exps");
-      root.innerHTML = pack.cards.map(c => cardHtml(c, fp, animate)).join("");
+      </article>`).join("");
       if (animate) {
         [...root.children].forEach(el => {
           el.classList.add("branching", "flash");
@@ -267,61 +308,41 @@
       document.getElementById("stageBig").textContent = t;
     }
 
-    function showWhy(from, to) {
-      const b = VARIANTS[from].cards[0];
-      const a = VARIANTS[to].cards[0];
+    function showWhy(from, to, key) {
+      const b = packFor(from)[0];
+      const a = packFor(to)[0];
+      document.getElementById("changedVar").textContent = "Changed variable: " + key[0].toUpperCase() + key.slice(1);
+      document.getElementById("midArrow").textContent = "→ " + key + " →";
       document.getElementById("before").innerHTML =
-        `<div class="kicker">Before · ${from}</div><p class="hook" style="font-size:18px">“${b.hook}”</p><p class="meta">${b.k} · ${b.mom}</p>`;
+        `<div class="kicker">Before</div><p class="hook" style="font-size:18px">“${b.hook}”</p><p class="meta">${b.k} · ${b.mom}<br>${LABELS.audience[from.audience]} · ${LABELS.goal[from.goal]} · ${LABELS.platform[from.platform]}<br>${fingerprint(from)}</p>`;
       document.getElementById("after").innerHTML =
-        `<div class="kicker">After · ${to}</div><p class="hook" style="font-size:18px">“${a.hook}”</p><p class="meta">${a.k} · ${a.mom}</p>`;
-      document.getElementById("reason").textContent = WHY[to];
+        `<div class="kicker">After</div><p class="hook" style="font-size:18px">“${a.hook}”</p><p class="meta">${a.k} · ${a.mom}<br>${LABELS.audience[to.audience]} · ${LABELS.goal[to.goal]} · ${LABELS.platform[to.platform]}<br>${fingerprint(to)}</p>`;
+      document.getElementById("reason").textContent = WHY[key][to[key]];
       document.getElementById("why").classList.add("show");
-      const mem = document.getElementById("memNext");
-      mem.textContent = to === "experienced"
-        ? "Your demo history still favors result-first for beginners; this branch overrides it because audience changed."
-        : "Based on your previous experiments, Creator Lab is prioritizing the result-first opening.";
+      document.getElementById("memNext").textContent = key === "audience" && to.audience === "experienced"
+        ? "Demo memory still favors result-first for beginners; this branch overrides it because audience changed."
+        : "Based on your previous experiments, Creator Lab is prioritizing the result-first opening unless a variable demands otherwise.";
     }
 
-    ["audience","goal","platform"].forEach(id => {
-      document.getElementById(id).addEventListener("change", () => {
-        const next = {
-          audience: document.getElementById("audience").value,
-          goal: document.getElementById("goal").value,
-          platform: document.getElementById("platform").value
-        };
-        const changed = ["audience","goal","platform"].filter(k => next[k] !== applied[k]);
-        if (changed.length > 1) {
-          // revert extras — only one variable
-          ["audience","goal","platform"].forEach(k => {
-            if (k !== changed[0]) document.getElementById(k).value = applied[k];
-          });
-          next.audience = document.getElementById("audience").value;
-          next.goal = document.getElementById("goal").value;
-          next.platform = document.getElementById("platform").value;
-        }
-        pendingVar = ["audience","goal","platform"].find(k => next[k] !== applied[k]) || null;
-      });
+    ["audience", "goal", "platform"].forEach(id => {
+      document.getElementById(id).addEventListener("change", enforceOne);
     });
 
     document.getElementById("go").addEventListener("click", () => {
-      const next = {
-        audience: document.getElementById("audience").value,
-        goal: document.getElementById("goal").value,
-        platform: document.getElementById("platform").value
-      };
-      const changed = ["audience","goal","platform"].filter(k => next[k] !== applied[k]);
+      const next = currentDraft();
+      const changed = diffs(applied, next);
       if (changed.length !== 1) {
         setStage("Pick exactly one variable, then press the butterfly.");
         return;
       }
-      const from = applied.audience;
+      const key = changed[0];
+      const from = { ...applied };
       setStage("🦋 Change one variable");
       setTimeout(() => {
         applied = next;
         renderExps(applied, true);
-        setStage("Three experiments. Different strategy.");
-        showWhy(from, applied.audience);
-        setTimeout(() => setStage("Same source. One changed variable. Different strategy."), 1600);
+        showWhy(from, applied, key);
+        setStage("Same source. One changed variable. Different strategy.");
       }, 280);
     });
 
