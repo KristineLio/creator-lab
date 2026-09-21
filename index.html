@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubmjtdk8x54ubvb -->
+<!-- aha-build-id: bmuboto8x7ri734rn -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,6 +96,91 @@
     .exps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     @media (max-width: 900px) { .exps { grid-template-columns: 1fr; } }
     .card { background: var(--lift); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-height: 280px; }
+    .agent-panel {
+      margin-top: 16px;
+      padding: 13px;
+      border: 1px solid rgba(232, 163, 90, 0.26);
+      border-radius: 12px;
+      background: rgba(232, 163, 90, 0.055);
+    }
+    .agent-status {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .agent-status strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+    .agent-status .agent-threshold {
+      display: block;
+      margin-top: 9px;
+      padding-top: 9px;
+      border-top: 1px solid var(--line);
+      color: var(--text);
+      font-family: "Instrument Serif", Georgia, serif;
+      font-size: 17px;
+      line-height: 1.22;
+    }
+    .agent-action {
+      width: 100%;
+      margin-top: 11px;
+      padding: 9px 11px;
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--accent);
+      font: inherit;
+      cursor: pointer;
+    }
+    .agent-action:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .agent-next-card {
+      border-color: rgba(143, 180, 217, 0.7) !important;
+      box-shadow: 0 0 0 1px rgba(143, 180, 217, 0.12);
+    }
+    .agent-next-label {
+      display: inline-block;
+      margin: 0 0 8px 6px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      color: #b9d6ef;
+      border: 1px solid rgba(143, 180, 217, 0.5);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+    }
+    .test-brief {
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid rgba(143, 180, 217, 0.35);
+      border-radius: 12px;
+      background: rgba(143, 180, 217, 0.055);
+    }
+    .test-brief-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 16px;
+      margin-top: 9px;
+    }
+    .test-brief-grid div {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .test-brief-grid b {
+      display: block;
+      color: var(--text);
+      font-weight: 500;
+    }
+    @media (max-width: 700px) {
+      .test-brief-grid {
+        grid-template-columns: 1fr;
+      }
+    }
     .card.branching { animation: branch 0.7s ease; }
     @keyframes branch { 0% { opacity: 1; } 40% { opacity: 0.45; transform: translateX(-8px); } 100% { opacity: 1; transform: none; } }
     .card.flash .chg { background: rgba(232,163,90,0.18); }
@@ -451,6 +536,11 @@
       </select>
       <p class="locked" id="lockHint">Change exactly one variable from the applied state, then press the butterfly.</p>
       <button class="butterfly" id="go" type="button">🦋 Change one variable</button>
+      <div class="agent-panel" id="agentPanel">
+        <div class="kicker">LOCAL EXPERIMENT AGENT</div>
+        <div class="agent-status" id="agentStatus"></div>
+        <button type="button" id="prepareNextTestBtn" class="agent-action">Prepare next test</button>
+      </div>
     </aside>
   </div>
   <div class="lower">
@@ -466,6 +556,7 @@
     </section>
     <section class="panel" id="memoryPanel">
       <p class="changed-var" id="memoryDelta"></p>
+      <div class="test-brief" id="testBrief" hidden></div>
       <div class="memory-grid">
         <div>
           <h2>Creator Memory</h2>
@@ -657,6 +748,7 @@
           </div>
         </div>
       `;
+      renderExperimentAgent();
     }
     function updateTranscriptState() {
       const input = document.getElementById("transcriptIn");
@@ -808,9 +900,146 @@
       const userCount = entries.filter(entry => !entry.isDemo).length;
       const demoCount = entries.filter(entry => entry.isDemo).length;
       return {
-        metric, best, runnerUp, userCount, demoCount, specificity,
+        metric, best, runnerUp, ranked, userCount, demoCount, specificity,
         delta: runnerUp ? (best.average - runnerUp.average) : null
       };
+    }
+    function metricUpperBound(metricKey) {
+      if (metricKey === "earlyHold" || metricKey === "completion" || metricKey === "clickRate") {
+        return 100;
+      }
+      return null;
+    }
+    function whatWouldChangeMyMind(state) {
+      if (!sourceReady) {
+        return { ready: false, reason: "Analyze the current source first." };
+      }
+      const signal = creatorMemorySignal(state);
+      if (!signal || !signal.best) {
+        return { ready: false, reason: "Not enough recorded evidence yet." };
+      }
+      const cards = currentExperiments();
+      const availableStrategies = new Set(cards.map(card => String(card.k || "").toUpperCase()));
+      const challenger = signal.ranked.find(group => group.strategy !== signal.best.strategy && availableStrategies.has(group.strategy));
+      if (!challenger) {
+        return {
+          ready: false,
+          leader: signal.best,
+          metric: signal.metric,
+          reason: "Creator Lab needs another comparable strategy result before it can calculate a falsification threshold."
+        };
+      }
+      const leaderAverage = signal.best.average;
+      const challengerAverage = challenger.average;
+      const challengerCount = challenger.count;
+      const rawThreshold = leaderAverage * (challengerCount + 1) - challengerAverage * challengerCount;
+      const threshold = Math.max(0, rawThreshold + 0.1);
+      const upperBound = metricUpperBound(signal.metric.key);
+      const possible = upperBound === null || threshold <= upperBound;
+      return {
+        ready: true,
+        possible,
+        metric: signal.metric,
+        specificity: signal.specificity,
+        leader: signal.best,
+        challenger,
+        threshold,
+        upperBound,
+        leaderAverage,
+        challengerAverage,
+        challengerCount
+      };
+    }
+    function thresholdText(challenge) {
+      if (!challenge || !challenge.ready) {
+        return challenge?.reason || "Not enough evidence yet.";
+      }
+      if (!challenge.possible) {
+        return "One normal result cannot flip the current theory yet. " + challenge.challenger.strategy + " would need " + challenge.threshold.toFixed(1) + " on " + challenge.metric.label + ", above the metric's normal maximum. Collect more evidence instead.";
+      }
+      return "If the next " + challenge.challenger.strategy + " experiment reaches " + challenge.threshold.toFixed(1) + " or higher on " + challenge.metric.label + ", Creator Lab would switch its current priority.";
+    }
+    function agentDecision(state) {
+      const challenge = whatWouldChangeMyMind(state);
+      if (!challenge.ready) {
+        return { ready: false, challenge, reason: challenge.reason };
+      }
+      const cards = currentExperiments();
+      const challengerCard = cards.find(card => String(card.k || "").toUpperCase() === challenge.challenger.strategy);
+      return {
+        ready: !!challengerCard,
+        challenge,
+        challengerCard,
+        reason: challengerCard ? "" : "The historical challenger is not supported by this source, so Creator Lab will not invent an experiment."
+      };
+    }
+    function renderExperimentAgent() {
+      const panel = document.getElementById("agentStatus");
+      const button = document.getElementById("prepareNextTestBtn");
+      if (!panel || !button) return;
+      if (!sourceReady) {
+        panel.innerHTML = `Analyze the source first.`;
+        button.disabled = true;
+        return;
+      }
+      const decision = agentDecision(applied);
+      if (!decision.ready) {
+        panel.innerHTML = `
+          <strong>Current theory is still forming.</strong>
+          <span class="agent-threshold">${esc(decision.reason || "Record another comparable result.")}</span>
+        `;
+        button.disabled = true;
+        return;
+      }
+      const c = decision.challenge;
+      panel.innerHTML = `
+        <div>Current theory: <strong>${esc(c.leader.strategy)}</strong></div>
+        <div>Next test: <strong>${esc(c.challenger.strategy)}</strong></div>
+        <span class="agent-threshold">What would change my mind? ${esc(thresholdText(c))}</span>
+        <p class="mode">Based on recorded evidence ${esc(memoryScopeText(c.specificity))}.</p>
+      `;
+      button.disabled = !c.possible || judgeRunning || judgeMode;
+    }
+    function hideTestBrief() {
+      const brief = document.getElementById("testBrief");
+      if (brief) {
+        brief.hidden = true;
+        brief.innerHTML = "";
+      }
+    }
+    function renderTestBrief(card, challenge) {
+      const brief = document.getElementById("testBrief");
+      if (!brief || !card || !challenge) return;
+      brief.hidden = false;
+      brief.innerHTML = `
+        <div class="kicker">READY-TO-TEST BRIEF</div>
+        <div class="hook">${esc(card.k)}</div>
+        <div class="test-brief-grid">
+          <div><b>Clip</b> ${esc(card.mom)}</div>
+          <div><b>Opening</b> “${esc(card.hook)}”</div>
+          <div><b>Hypothesis</b> ${esc(card.hyp)}</div>
+          <div><b>Judge by</b> ${esc(card.met)}</div>
+          <div><b>What changes the theory?</b> ${challenge.possible ? (esc(challenge.threshold.toFixed(1)) + " or higher on " + esc(challenge.metric.label)) : "One result is not enough yet."}</div>
+          <div><b>Controls held constant</b> ${esc(LABELS.audience[applied.audience])} · ${esc(LABELS.goal[applied.goal])} · ${esc(LABELS.platform[applied.platform])}</div>
+        </div>
+      `;
+    }
+    function prepareNextAgentTest() {
+      if (!sourceReady || judgeMode) return;
+      const decision = agentDecision(applied);
+      if (!decision.ready || !decision.challenge.possible) return;
+      const card = decision.challengerCard;
+      const select = document.getElementById("memoryExperiment");
+      if (select) select.value = card.experimentId;
+      document.querySelectorAll(".card").forEach(el => el.classList.remove("agent-next-card"));
+      const target = document.querySelector(`.card[data-experiment-id="${CSS.escape(card.experimentId)}"]`);
+      if (target) target.classList.add("agent-next-card");
+      const status = document.getElementById("memoryStatus");
+      if (status) {
+        status.textContent = "Next test prepared: " + card.k + ". Run this experiment, then record the result to update Creator Memory.";
+      }
+      renderTestBrief(card, decision.challenge);
+      document.getElementById("testBrief")?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     function applyCreatorMemory(cards, state) {
       const signal = creatorMemorySignal(state);
@@ -1071,6 +1300,8 @@
         return;
       }
       const cards = packFor(state);
+      const agent = agentDecision(state);
+      const nextStrategy = agent.ready ? agent.challenge.challenger.strategy : null;
       const root = document.getElementById("exps");
       root.innerHTML = cards.map((card, index) => {
         const experimentId = experimentFingerprint(state, card);
@@ -1083,8 +1314,12 @@
           <div>${esc(memoryProofText(card.memory))}</div>
         </div>` : "";
         const priority = index === 0 ? `<span class="priority-label">CURRENT PRIORITY</span>` : "";
-        return `<article class="card ${index === 0 ? "priority-card" : ""}">
+        const nextTest = nextStrategy && String(card.k || "").toUpperCase() === nextStrategy ? `
+        <span class="agent-next-label">AGENT'S NEXT TEST</span>
+        ` : "";
+        return `<article class="card ${index === 0 ? "priority-card" : ""} ${nextStrategy && String(card.k || "").toUpperCase() === nextStrategy ? "agent-next-card" : ""}" data-strategy="${esc(String(card.k || "").toUpperCase())}" data-experiment-id="${esc(experimentId)}">
         ${priority}
+        ${nextTest}
         <span class="id">${esc(experimentId)}</span>
         <div class="kicker">${esc(card.k)}</div>
         <div class="hook chg">“${esc(card.hook)}”</div>
@@ -1100,6 +1335,7 @@
       }).join("");
       if (animate) [...root.children].forEach(el => { el.classList.add("branching", "flash"); });
       populateMemoryExperimentSelect();
+      renderExperimentAgent();
     }
     function currentExperiments() {
       if (!sourceReady) {
@@ -1235,6 +1471,7 @@
         document.getElementById("memoryDelta").textContent = "Memory update: new evidence recorded · " + (afterPrimary ? afterPrimary.strategy : "current strategy") + " remains the current priority.";
         setStage("Same source. Same controls. New evidence. Theory updated.");
       }
+      hideTestBrief();
       renderCreatorMemory();
       renderExps(applied, true);
     }
@@ -1275,6 +1512,7 @@
         </div>
       `).join("");
       syncClearMemoryButton();
+      renderExperimentAgent();
     }
     function syncClearMemoryButton() {
       const button = document.getElementById("clearMemoryBtn");
@@ -1511,6 +1749,7 @@
         transcriptOrigin = "empty";
       }
       setSourceReady(false);
+      hideTestBrief();
       clearSourceDerivedUI();
       renderSourcePending();
       document.getElementById("why").classList.remove("show");
@@ -1552,6 +1791,7 @@
       runAnalysis(mode, lines, title, dur);
     });
     document.getElementById("transcriptIn").addEventListener("input", updateTranscriptState);
+    document.getElementById("prepareNextTestBtn").addEventListener("click", prepareNextAgentTest);
     document.getElementById("retryBtn").addEventListener("click", () => {
       clearCurrentAnalysisCache();
       document.getElementById("analyzeBtn").click();
@@ -1569,6 +1809,7 @@
       const from = { ...applied };
       applied = next;
       document.getElementById("memoryDelta").textContent = "";
+      hideTestBrief();
       renderExps(applied, true);
       renderMemoryFields();
       renderCreatorMemory();
@@ -1645,7 +1886,7 @@
     }
     function syncJudgeControls() {
       const sandboxLocked = judgeMode;
-      ["recordResultBtn", "clearMemoryBtn", "analyzeBtn", "retryBtn", "demoBtn"].forEach(id => {
+      ["recordResultBtn", "clearMemoryBtn", "analyzeBtn", "retryBtn", "demoBtn", "prepareNextTestBtn"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = sandboxLocked;
       });
@@ -1745,13 +1986,23 @@
         focusJudge("#why");
       });
       judgeLater(runId, 9300, () => {
-        setJudgeStep("Now add one result.");
+        const challenge = whatWouldChangeMyMind(applied);
+        if (challenge.ready && challenge.possible) {
+          setJudgeStep(challenge.challenger.strategy + " ≥ " + challenge.threshold.toFixed(1) + " " + challenge.metric.label + " would change my mind.");
+        } else {
+          setJudgeStep("Now add one result.");
+        }
         focusJudge("#memoryPanel");
       });
       judgeLater(
         runId,
         11800,
         () => {
+          const challengeBefore =
+            whatWouldChangeMyMind(
+              applied
+            );
+
           judgeMemoryChanged =
             applyJudgeDemoResult();
 
@@ -1766,9 +2017,26 @@
           */
           renderCreatorMemory();
 
-          setJudgeStep(
-            "Same controls. New evidence."
-          );
+          if (
+            challengeBefore.ready &&
+            challengeBefore.possible
+          ) {
+            setJudgeStep(
+              "Demo Result: 95.0 " +
+              challengeBefore
+                .metric
+                .label +
+              " · threshold " +
+              challengeBefore
+                .threshold
+                .toFixed(1) +
+              " crossed."
+            );
+          } else {
+            setJudgeStep(
+              "Same controls. New evidence."
+            );
+          }
 
           focusJudge(
             "#memoryPanel"
