@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubgvdqcydnkcwds -->
+<!-- aha-build-id: bmubh3fire0zvbcv9 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -136,6 +136,10 @@
     .memory-list { margin-top: 10px; max-height: 160px; overflow: auto; }
     .memory-row {
       padding: 8px 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px;
+    }
+    .memory-actions button:disabled {
+      opacity: 0.55;
+      cursor: default;
     }
   </style>
 </head>
@@ -326,6 +330,7 @@
     let sourceDoc = DEMO_SOURCE;
     let applied = { audience: "beginners", goal: "views", platform: "tiktok" };
     let videoUrl = null;
+    let recordResultLocked = false;
 
     function fmt(s) {
       s = Math.max(0, Math.floor(s || 0));
@@ -475,10 +480,16 @@
         average: signal.best.average,
         count: signal.best.count,
         delta: signal.delta,
-        runnerUp: signal.runnerUp ? signal.runnerUp.strategy : null
+        runnerUp: signal.runnerUp ? signal.runnerUp.strategy : null,
+        specificity: signal.specificity
       };
       next.unshift(selected);
       return next;
+    }
+    function memoryScopeText(specificity) {
+      return specificity === "platform + goal"
+        ? "among results with this platform and goal"
+        : "across this platform's recorded history";
     }
     function memoryProofText(memory) {
       const avg = memory.average.toFixed(1);
@@ -486,10 +497,29 @@
         return memory.count + " recorded result" + (memory.count === 1 ? "" : "s") +
           " · " + memory.metric + " averaged " + avg + " · " +
           memory.delta.toFixed(1) + " points above " + memory.runnerUp.toLowerCase() +
-          " in the relevant history.";
+          " " + memoryScopeText(memory.specificity) + ".";
       }
       return "Early signal from " + memory.count + " recorded result" +
-        (memory.count === 1 ? "" : "s") + " · " + memory.metric + " averaged " + avg + ".";
+        (memory.count === 1 ? "" : "s") + " · " + memory.metric + " averaged " + avg +
+        " " + memoryScopeText(memory.specificity) + ".";
+    }
+    function momentClass(type) {
+      const raw = String(type || "").toLowerCase().split(/[\/\s]/)[0];
+      const allowed = ["reveal", "failure", "mistake", "curiosity", "surprise", "statement", "insight", "explanation", "emotion", "payoff", "conflict", "before"];
+      return allowed.includes(raw) ? raw : "statement";
+    }
+    function isValidPercent(value) {
+      return value === null || (value >= 0 && value <= 100);
+    }
+    function isValidCount(value) {
+      return value === null || value >= 0;
+    }
+    function metricSummaryForEntry(entry) {
+      const entryState = { platform: entry.platform, audience: entry.audience, goal: entry.goal };
+      const metric = memoryMetricFor(entryState);
+      const value = metricValue(entry, metric.key);
+      if (value === null) return metric.label + ": not recorded";
+      return metric.label + ": " + value.toFixed(1);
     }
 
     function findMoment(types) {
@@ -623,8 +653,10 @@
       document.getElementById("analysisMode").textContent = "Analysis source: " + (sourceDoc.analysisMode || "unknown");
       const dur = sourceDoc.duration || 1;
       document.getElementById("timeline").innerHTML = (sourceDoc.moments || []).map(m => {
-        const left = Math.min(96, Math.max(2, (m.start / dur) * 100));
-        const cls = (m.type || "reveal").split(/[\/\s]/)[0];
+        const rawStart = Number(m.start);
+        const safeStart = Number.isFinite(rawStart) ? Math.max(0, rawStart) : 0;
+        const left = Math.min(96, Math.max(2, (safeStart / dur) * 100));
+        const cls = momentClass(m.type);
         return `<div class="mtick ${cls}" data-id="${esc(m.id)}" style="left:${left}%" title="${esc(m.type)}"></div>`;
       }).join("");
       document.getElementById("moments").innerHTML = (sourceDoc.moments || []).map(m =>
@@ -743,6 +775,16 @@
         document.getElementById("memoryStatus").textContent = "Add the experiment's view count before recording the result.";
         return;
       }
+      const percentagesValid = isValidPercent(metrics.earlyHold) && isValidPercent(metrics.completion);
+      const countsValid = [metrics.saves, metrics.shares, metrics.profileVisits, metrics.follows, metrics.clicks].every(isValidCount);
+      if (!percentagesValid) {
+        document.getElementById("memoryStatus").textContent = "Retention and completion percentages must be between 0 and 100.";
+        return;
+      }
+      if (!countsValid) {
+        document.getElementById("memoryStatus").textContent = "Views, saves, shares, profile visits, follows, and clicks cannot be negative.";
+        return;
+      }
       const requiredMetric = memoryMetricFor(applied);
       let requiredMetricPresent = true;
       if (requiredMetric.key === "earlyHold") requiredMetricPresent = metrics.earlyHold !== null;
@@ -768,7 +810,19 @@
         goal: applied.goal,
         metrics
       };
-      userMemory = userMemory.filter(entry => entry.lineageKey !== lineageKey && entry.id !== result.id);
+      function isLegacySameExperiment(entry) {
+        return !entry.lineageKey &&
+          entry.sourceId === sourceDoc.id &&
+          String(entry.strategy || "") === String(experiment.k || "") &&
+          entry.platform === applied.platform &&
+          entry.audience === applied.audience &&
+          entry.goal === applied.goal;
+      }
+      userMemory = userMemory.filter(entry =>
+        entry.lineageKey !== lineageKey &&
+        entry.id !== result.id &&
+        !isLegacySameExperiment(entry)
+      );
       userMemory.push(result);
       memoryStore.save(userMemory);
       const afterCards = currentExperiments();
@@ -800,9 +854,10 @@
         const basis = signal.best.userCount > 0
           ? (signal.best.demoCount > 0 ? "DEMO DATA + YOUR DATA" : "YOUR DATA")
           : "DEMO DATA";
+        const scope = memoryScopeText(signal.specificity);
         const deltaText = signal.runnerUp && signal.delta !== null
-          ? `${esc(signal.best.strategy)} is currently ${signal.delta.toFixed(1)} points above ${esc(signal.runnerUp.strategy)} on ${esc(signal.metric.label)} in the relevant recorded history.`
-          : `Early signal: ${esc(signal.best.strategy)} currently has the strongest recorded ${esc(signal.metric.label)}.`;
+          ? `${esc(signal.best.strategy)} is currently ${signal.delta.toFixed(1)} points above ${esc(signal.runnerUp.strategy)} on ${esc(signal.metric.label)} ${esc(scope)}.`
+          : `Early signal: ${esc(signal.best.strategy)} currently has the strongest recorded ${esc(signal.metric.label)} ${esc(scope)}.`;
         observation.innerHTML = `
           <div><span class="pill">${esc(basis)}</span></div>
           <p class="mem-item">${deltaText}</p>
@@ -817,9 +872,8 @@
         <div class="memory-row">
           <span class="pill">${entry.isDemo ? "DEMO DATA" : "YOUR DATA"}</span>
           <b>${esc(entry.strategy)}</b>
-          · ${LABELS.platform[entry.platform]}
-          · ${Number(entry.metrics?.earlyHold || 0).toFixed(1)}% early hold
-          · ${Number(entry.metrics?.completion || 0).toFixed(1)}% completion
+          · ${esc(LABELS.platform[entry.platform] || entry.platform)}
+          · ${esc(metricSummaryForEntry(entry))}
         </div>
       `).join("");
     }
@@ -1040,7 +1094,20 @@
       showWhy(from, applied, changed[0]);
       setStage("Same source. One changed variable. Different strategy.");
     });
-    document.getElementById("recordResultBtn").addEventListener("click", recordCreatorResult);
+    document.getElementById("recordResultBtn").addEventListener("click", () => {
+      if (recordResultLocked) return;
+      const button = document.getElementById("recordResultBtn");
+      recordResultLocked = true;
+      button.disabled = true;
+      try {
+        recordCreatorResult();
+      } finally {
+        setTimeout(() => {
+          recordResultLocked = false;
+          button.disabled = false;
+        }, 500);
+      }
+    });
     document.getElementById("clearMemoryBtn").addEventListener("click", () => {
       userMemory = [];
       memoryStore.clearUserData();
