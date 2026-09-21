@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubjy6hvcpql4stp -->
+<!-- aha-build-id: bmubl5h9uixk2jpos -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1015,7 +1015,29 @@
       }
     }
 
+    /*
+      Source-integrity invariant:
+      experiment cards may only be
+      rendered when sourceReady=true.
+
+      A newly selected video keeps the
+      previous sourceDoc internally only
+      until the replacement analysis
+      succeeds, but that old source must
+      never become visible again.
+    */
     function renderExps(state, animate) {
+      if (!sourceReady) {
+        renderSourcePending();
+        const select = document.getElementById("memoryExperiment");
+        if (select) {
+          select.innerHTML = `
+            <option value="">Analyze source first</option>
+          `;
+          select.disabled = true;
+        }
+        return;
+      }
       const cards = packFor(state);
       const root = document.getElementById("exps");
       root.innerHTML = cards.map((card, index) => {
@@ -1048,6 +1070,9 @@
       populateMemoryExperimentSelect();
     }
     function currentExperiments() {
+      if (!sourceReady) {
+        return [];
+      }
       return packFor(applied).map(card => ({
         ...card,
         experimentId: experimentFingerprint(applied, card),
@@ -1057,10 +1082,18 @@
     function populateMemoryExperimentSelect() {
       const select = document.getElementById("memoryExperiment");
       if (!select) return;
+      if (!sourceReady) {
+        select.innerHTML = `
+          <option value="">Analyze source first</option>
+        `;
+        select.disabled = true;
+        return;
+      }
       const cards = currentExperiments();
       select.innerHTML = cards.map(card => `
         <option value="${esc(card.experimentId)}">${esc(card.k)} · ${esc(card.experimentId)}</option>
       `).join("");
+      select.disabled = judgeMode;
     }
     function renderMemoryFields() {
       const platform = applied.platform;
@@ -1503,7 +1536,7 @@
       } finally {
         setTimeout(() => {
           recordResultLocked = false;
-          button.disabled = false;
+          button.disabled = !sourceReady || judgeMode;
         }, 500);
       }
     });
@@ -1513,7 +1546,12 @@
       document.getElementById("memoryStatus").textContent = "Your recorded results were cleared. Demo Data remains labeled and available.";
       document.getElementById("memoryDelta").textContent = "";
       renderCreatorMemory();
-      renderExps(applied, true);
+      if (sourceReady) {
+        renderExps(applied, true);
+      } else {
+        renderSourcePending();
+        populateMemoryExperimentSelect();
+      }
     });
 
     function judgeLater(runId, delay, fn) {
