@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmubh3fire0zvbcv9 -->
+<!-- aha-build-id: bmubhet9obemz40dj -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -141,6 +141,72 @@
       opacity: 0.55;
       cursor: default;
     }
+    .judge-demo-btn {
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 8px 13px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .judge-demo-btn.running {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .judge-ribbon {
+      margin: 0 28px 14px;
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(232, 163, 90, 0.34);
+      border-radius: 12px;
+      background: rgba(232, 163, 90, 0.08);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .judge-ribbon > span {
+      color: var(--accent);
+      font-family: "IBM Plex Mono", monospace;
+      letter-spacing: 0.1em;
+      font-size: 10px;
+    }
+    .judge-ribbon strong {
+      color: var(--text);
+      font-weight: 500;
+      flex: 1;
+    }
+    .judge-ribbon button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font: inherit;
+    }
+    .judge-focus {
+      position: relative;
+      box-shadow: 0 0 0 2px rgba(232, 163, 90, 0.65), 0 0 28px rgba(232, 163, 90, 0.14);
+      transition: box-shadow 220ms ease;
+    }
+    @media (max-width: 700px) {
+      .judge-ribbon {
+        margin: 0 16px 12px;
+        flex-wrap: wrap;
+      }
+    }
+    .priority-label {
+      display: inline-block;
+      margin-bottom: 8px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: rgba(232, 163, 90, 0.12);
+      color: var(--accent);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+    }
   </style>
 </head>
 <body>
@@ -150,7 +216,13 @@
       <div class="tag">Same source. One changed variable. Different strategy.</div>
     </div>
     <div class="tag" id="stageLine">One source.</div>
+    <button type="button" id="judgeDemoBtn" class="judge-demo-btn">▶ 20s Demo</button>
   </header>
+  <div id="judgeRibbon" class="judge-ribbon" hidden>
+    <span>JUDGE MODE</span>
+    <strong id="judgeStep">One source.</strong>
+    <button type="button" id="judgeResetBtn">Reset demo</button>
+  </div>
   <div class="demo-banner"><strong>Demo Data</strong> gives Creator Memory a clearly labeled cold start. Your recorded results stay in this browser for now. Source analysis can use a real file + transcript, or Load Demo Source.</div>
   <p class="stage" id="stageBig">One source.</p>
   <div class="lab">
@@ -331,6 +403,17 @@
     let applied = { audience: "beginners", goal: "views", platform: "tiktok" };
     let videoUrl = null;
     let recordResultLocked = false;
+    let judgeMode = false;
+    let judgeDemoMemory = [];
+    let judgeTimers = [];
+    let judgeDemoRunId = 0;
+    function activeUserMemory() {
+      return judgeMode ? judgeDemoMemory : userMemory;
+    }
+    function memoryBadge(entry) {
+      if (entry.isJudgeDemo) return "DEMO RESULT";
+      return entry.isDemo ? "DEMO DATA" : "YOUR DATA";
+    }
 
     function fmt(s) {
       s = Math.max(0, Math.floor(s || 0));
@@ -359,7 +442,7 @@
       return "SRC-" + hash32(raw).slice(0, 8);
     }
     function relevantMemoryEntries(state) {
-      const all = [...DEMO_MEMORY, ...userMemory];
+      const all = [...DEMO_MEMORY, ...activeUserMemory()];
       return all.filter(entry => entry.platform === state.platform);
     }
     function memoryRevision(state) {
@@ -691,7 +774,7 @@
     function renderExps(state, animate) {
       const cards = packFor(state);
       const root = document.getElementById("exps");
-      root.innerHTML = cards.map(card => {
+      root.innerHTML = cards.map((card, index) => {
         const experimentId = experimentFingerprint(state, card);
         const proof = card.memory?.influenced ? `
         <div class="memory-proof">
@@ -701,7 +784,9 @@
           </div>
           <div>${esc(memoryProofText(card.memory))}</div>
         </div>` : "";
+        const priority = index === 0 ? `<span class="priority-label">CURRENT PRIORITY</span>` : "";
         return `<article class="card">
+        ${priority}
         <span class="id">${esc(experimentId)}</span>
         <div class="kicker">${esc(card.k)}</div>
         <div class="hook chg">“${esc(card.hook)}”</div>
@@ -864,13 +949,13 @@
           <p class="mode">This is an observation from recorded experiments, not a guarantee of future performance.</p>
         `;
       }
-      const recent = [...DEMO_MEMORY, ...userMemory]
+      const recent = [...DEMO_MEMORY, ...activeUserMemory()]
         .filter(entry => entry.platform === applied.platform)
         .slice(-6)
         .reverse();
       list.innerHTML = recent.map(entry => `
         <div class="memory-row">
-          <span class="pill">${entry.isDemo ? "DEMO DATA" : "YOUR DATA"}</span>
+          <span class="pill">${esc(memoryBadge(entry))}</span>
           <b>${esc(entry.strategy)}</b>
           · ${esc(LABELS.platform[entry.platform] || entry.platform)}
           · ${esc(metricSummaryForEntry(entry))}
@@ -1117,11 +1202,170 @@
       renderExps(applied, true);
     });
 
+    function judgeLater(runId, delay, fn) {
+      const timer = setTimeout(() => {
+        if (!judgeMode || runId !== judgeDemoRunId) return;
+        fn();
+      }, delay);
+      judgeTimers.push(timer);
+    }
+    function clearJudgeTimers() {
+      judgeTimers.forEach(timer => clearTimeout(timer));
+      judgeTimers = [];
+    }
+    function clearJudgeFocus() {
+      document.querySelectorAll(".judge-focus").forEach(el => el.classList.remove("judge-focus"));
+    }
+    function focusJudge(selector) {
+      clearJudgeFocus();
+      const el = document.querySelector(selector);
+      if (!el) return;
+      el.classList.add("judge-focus");
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    function setJudgeStep(text) {
+      const step = document.getElementById("judgeStep");
+      if (step) step.textContent = text;
+      setStage(text);
+    }
+    function setJudgeInteractionLock(locked) {
+      ["recordResultBtn", "clearMemoryBtn", "analyzeBtn", "demoBtn"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = locked;
+      });
+      const file = document.getElementById("file");
+      if (file) file.disabled = locked;
+      ["audience", "goal", "platform", "go"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = locked;
+      });
+    }
+    function prepareJudgeDemo() {
+      clearJudgeTimers();
+      clearJudgeFocus();
+      judgeMode = true;
+      judgeDemoMemory = [];
+      applied = { audience: "beginners", goal: "views", platform: "tiktok" };
+      document.getElementById("audience").value = applied.audience;
+      document.getElementById("goal").value = applied.goal;
+      document.getElementById("platform").value = applied.platform;
+      loadDemo();
+      judgeMode = true;
+      document.getElementById("judgeRibbon").hidden = false;
+      document.getElementById("judgeDemoBtn").textContent = "■ Stop Demo";
+      document.getElementById("judgeDemoBtn").classList.add("running");
+      document.getElementById("why").classList.remove("show");
+      document.getElementById("memoryDelta").textContent = "";
+      renderMemoryFields();
+      renderCreatorMemory();
+      renderExps(applied, false);
+      setJudgeInteractionLock(true);
+      setJudgeStep("One source.");
+    }
+    function applyJudgeDemoResult() {
+      const cards = currentExperiments();
+      const curiosity = cards.find(card => String(card.k).toUpperCase() === "CURIOSITY");
+      if (!curiosity) return;
+      const demoResult = {
+        id: "JUDGE-DEMO-CURIOSITY",
+        isDemo: true,
+        isJudgeDemo: true,
+        sourceId: sourceDoc.id,
+        experimentId: curiosity.experimentId,
+        lineageKey: curiosity.lineageKey,
+        strategy: "CURIOSITY",
+        platform: "instagram",
+        audience: "beginners",
+        goal: "views",
+        metrics: { views: 5000, earlyHold: 95, completion: 70, saves: 150, shares: 80, profileVisits: 120, follows: 70, clicks: 25 }
+      };
+      judgeDemoMemory = judgeDemoMemory.filter(entry => entry.id !== demoResult.id);
+      judgeDemoMemory.push(demoResult);
+      document.getElementById("memoryDelta").textContent = "Demo result: same source and controls · new evidence · Transformation → Curiosity.";
+      document.getElementById("memoryStatus").textContent = "Demo result recorded temporarily. Nothing was saved to your Creator Memory.";
+    }
+    function runJudgeDemo() {
+      judgeDemoRunId += 1;
+      const runId = judgeDemoRunId;
+      prepareJudgeDemo();
+      focusJudge(".lab > section.panel");
+      judgeLater(runId, 2200, () => {
+        setJudgeStep("Three experiments.");
+        focusJudge("#exps");
+        renderExps(applied, true);
+      });
+      judgeLater(runId, 4800, () => {
+        setJudgeStep("Change one variable.");
+        document.getElementById("platform").value = "instagram";
+        focusJudge(".ctrl");
+      });
+      judgeLater(runId, 6100, () => {
+        const from = { ...applied };
+        applied = { ...applied, platform: "instagram" };
+        renderExps(applied, true);
+        renderMemoryFields();
+        renderCreatorMemory();
+        showWhy(from, applied, "platform");
+        setJudgeStep("Same source. One changed variable. Different strategy.");
+        focusJudge("#why");
+      });
+      judgeLater(runId, 9300, () => {
+        setJudgeStep("Now add one result.");
+        focusJudge("#memoryPanel");
+      });
+      judgeLater(runId, 11800, () => {
+        applyJudgeDemoResult();
+        setJudgeStep("Same controls. New evidence.");
+        focusJudge("#memoryPanel");
+      });
+      judgeLater(runId, 14500, () => {
+        renderCreatorMemory();
+        renderExps(applied, true);
+        setJudgeStep("Creator Memory updated the theory.");
+        focusJudge("#exps");
+      });
+      judgeLater(runId, 17600, () => {
+        setJudgeStep("Same source. Same controls. New evidence. Different recommendation.");
+        clearJudgeFocus();
+        setJudgeInteractionLock(false);
+        document.getElementById("judgeDemoBtn").textContent = "Replay 20s Demo";
+      });
+    }
+    function stopJudgeDemo() {
+      judgeDemoRunId += 1;
+      clearJudgeTimers();
+      clearJudgeFocus();
+      setJudgeInteractionLock(false);
+      document.getElementById("judgeDemoBtn").classList.remove("running");
+      document.getElementById("judgeDemoBtn").textContent = "▶ 20s Demo";
+    }
+    function resetJudgeDemo() {
+      stopJudgeDemo();
+      judgeMode = false;
+      judgeDemoMemory = [];
+      document.getElementById("judgeRibbon").hidden = true;
+      loadDemo();
+      renderMemoryFields();
+      renderCreatorMemory();
+      renderExps(applied, false);
+      setStage("Three experiments.");
+    }
+    document.getElementById("judgeResetBtn").addEventListener("click", resetJudgeDemo);
+    document.getElementById("judgeDemoBtn").addEventListener("click", () => {
+      if (judgeMode && judgeTimers.length) {
+        stopJudgeDemo();
+        return;
+      }
+      runJudgeDemo();
+    });
+
     loadDemo();
     renderMemoryFields();
     renderCreatorMemory();
     populateMemoryExperimentSelect();
-    setTimeout(() => setStage("Three experiments."), 2800);
+    setTimeout(() => {
+      if (!judgeMode) setStage("Three experiments.");
+    }, 2800);
   </script>
 </body>
 </html>
