@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmucczh1p8fkjuty1 -->
+<!-- aha-build-id: bmuceyxck1cf3r2dr -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -356,6 +356,75 @@
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
     }
     #sourcePanel, #experimentsPanel, #labControl, #why, #memoryPanel { scroll-margin-top: 72px; }
+    #agentPanel { scroll-margin-top: 96px; }
+    .judge-scout-replay {
+      margin: 10px 0 8px;
+      padding: 12px;
+      border: 1px solid rgba(143, 180, 217, 0.34);
+      border-radius: 12px;
+      background: rgba(143, 180, 217, 0.055);
+    }
+    .judge-scout-top { display: flex; align-items: center; gap: 8px; }
+    .judge-scout-top span {
+      padding: 3px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(143, 180, 217, 0.45);
+      color: #b9d6ef;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 8px;
+      letter-spacing: 0.08em;
+    }
+    .judge-scout-top strong { color: var(--text); font-size: 11px; letter-spacing: 0.04em; }
+    .judge-scout-status {
+      margin-top: 9px;
+      color: var(--text);
+      font-family: "Instrument Serif", Georgia, serif;
+      font-size: 18px;
+      line-height: 1.18;
+    }
+    .judge-scout-track {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      margin-top: 10px;
+    }
+    .judge-scout-track i {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(143, 180, 217, 0.18);
+      transition: background 220ms ease, transform 220ms ease;
+    }
+    .judge-scout-replay.ready .judge-scout-track i {
+      background: rgba(143, 180, 217, 0.75);
+      transform: scaleY(1.2);
+    }
+    .judge-scout-replay p { margin: 8px 0 0; color: var(--muted); font-size: 9px; line-height: 1.35; }
+    .judge-theory-flip {
+      margin: 0 0 10px;
+      padding: 11px 13px;
+      border: 1px solid rgba(232, 163, 90, 0.56);
+      border-radius: 12px;
+      background: rgba(232, 163, 90, 0.095);
+      color: var(--text);
+      font-family: "Instrument Serif", Georgia, serif;
+      font-size: 21px;
+      line-height: 1.15;
+      animation: judgeTheoryArrive 520ms ease;
+    }
+    .judge-theory-flip span { color: var(--accent); }
+    @keyframes judgeTheoryArrive {
+      from { opacity: 0; transform: translateY(6px) scale(0.99); }
+      to { opacity: 1; transform: none; }
+    }
+    body:not(.judge-active) .judge-scout-replay,
+    body:not(.judge-active) .judge-theory-flip { display: none !important; }
+    body.judge-active .memory-entry-column { display: none; }
+    body.judge-active .memory-grid { grid-template-columns: 1fr; }
+    body.judge-active #agentPanel {
+      border-color: rgba(143, 180, 217, 0.55);
+      background: rgba(143, 180, 217, 0.075);
+    }
+    body.judge-active #agentPanel .agent-threshold { font-size: 18px; }
     .judge-demo-result-row {
       padding: 10px;
       margin: 6px 0;
@@ -507,6 +576,15 @@
       <video id="vid" class="source-vid" controls playsinline></video>
       <p class="source-line" id="srcMeta">Weather App Build · 04:12 · coding session</p>
       <p class="mode" id="analysisMode">Analysis source: Demo transcript (built-in)</p>
+      <div class="judge-scout-replay" id="judgeScoutReplay" hidden>
+        <div class="judge-scout-top">
+          <span>DEMO REPLAY</span>
+          <strong>LOCAL VISUAL SCOUT</strong>
+        </div>
+        <div class="judge-scout-status" id="judgeScoutStatus">Mapping visual checkpoints…</div>
+        <div class="judge-scout-track" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <p>Normal mode scans uploaded local video frames in-browser.</p>
+      </div>
       <label class="mode" for="transcriptIn">Timestamped transcript / source notes</label>
       <p class="meta">For silent footage, describe the visible event at each timestamp.</p>
       <p class="mode">Example: 00:20 Connection error appears…</p>
@@ -526,6 +604,7 @@
     </section>
     <section id="experimentsPanel">
       <h2>Experiments</h2>
+      <div class="judge-theory-flip" id="judgeTheoryFlip" hidden></div>
       <div class="exps" id="exps"></div>
     </section>
     <aside class="panel ctrl" id="labControl">
@@ -692,6 +771,7 @@
     let judgeDemoRunId = 0;
     let judgeRunning = false;
     let judgeMemoryChanged = false;
+    let judgeTheoryBefore = null;
     let autoScoutRunning = false;
     let scoutMetadata = new Map();
     let transcriptOrigin = "demo";
@@ -2201,6 +2281,43 @@
       syncClearMemoryButton();
       syncAutoScoutButton();
     }
+    function showJudgeScoutReplay(state) {
+      const replay = document.getElementById("judgeScoutReplay");
+      const status = document.getElementById("judgeScoutStatus");
+      if (!replay || !status) return;
+      replay.hidden = false;
+      if (state === "ready") {
+        replay.classList.add("ready");
+        status.textContent = "Source map ready · visual checkpoints detected.";
+        return;
+      }
+      replay.classList.remove("ready");
+      status.textContent = "Mapping visual checkpoints…";
+    }
+    function hideJudgeScoutReplay() {
+      const replay = document.getElementById("judgeScoutReplay");
+      if (!replay) return;
+      replay.hidden = true;
+      replay.classList.remove("ready");
+    }
+    function showJudgeTheoryFlip(beforeName, afterName) {
+      const el = document.getElementById("judgeTheoryFlip");
+      if (!el) return;
+      el.hidden = false;
+      el.innerHTML = "THEORY UPDATED · " + esc(beforeName) + " <span>→</span> " + esc(afterName);
+    }
+    function hideJudgeTheoryFlip() {
+      const el = document.getElementById("judgeTheoryFlip");
+      if (!el) return;
+      el.hidden = true;
+      el.innerHTML = "";
+    }
+    function showJudgeAgentBrief() {
+      const decision = agentDecision(applied);
+      if (!decision.ready || !decision.challengerCard || !decision.challenge.possible) return false;
+      renderTestBrief(decision.challengerCard, decision.challenge);
+      return true;
+    }
     function prepareJudgeDemo() {
       clearJudgeTimers();
       clearJudgeFocus();
@@ -2209,6 +2326,10 @@
       document.body.classList.add("judge-active");
       judgeMemoryChanged = false;
       judgeDemoMemory = [];
+      judgeTheoryBefore = null;
+      hideTestBrief();
+      hideJudgeTheoryFlip();
+      showJudgeScoutReplay("mapping");
       applied = { audience: "beginners", goal: "views", platform: "tiktok" };
       document.getElementById("audience").value = applied.audience;
       document.getElementById("goal").value = applied.goal;
@@ -2224,7 +2345,7 @@
       renderCreatorMemory();
       renderExps(applied, false);
       syncJudgeControls();
-      setJudgeStep("One source.");
+      setJudgeStep("Local Scout maps the source.");
     }
     function applyJudgeDemoResult() {
       const beforeCards = currentExperiments();
@@ -2268,117 +2389,84 @@
       const runId = judgeDemoRunId;
       prepareJudgeDemo();
       focusJudge("#sourcePanel");
-      judgeLater(runId, 2200, () => {
-        setJudgeStep("Three experiments.");
-        focusJudge("#experimentsPanel");
+      judgeLater(runId, 1400, () => {
+        showJudgeScoutReplay("ready");
+        setJudgeStep("Source map ready. Three experiments.");
         renderExps(applied, true);
+        focusJudge("#experimentsPanel");
       });
-      judgeLater(runId, 4800, () => {
-        setJudgeStep("Change one variable.");
+      judgeLater(runId, 4000, () => {
         document.getElementById("platform").value = "instagram";
+        setJudgeStep("Change one variable: TikTok → Instagram Reels.");
         focusJudge("#labControl");
       });
-      judgeLater(runId, 6100, () => {
+      judgeLater(runId, 5400, () => {
         const from = { ...applied };
         applied = { ...applied, platform: "instagram" };
         renderExps(applied, true);
         renderMemoryFields();
         renderCreatorMemory();
         showWhy(from, applied, "platform");
-        setJudgeStep("Same source. One changed variable. Different strategy.");
+        setJudgeStep("One variable changed. Strategy branches.");
         focusJudge("#why");
       });
-      judgeLater(runId, 9300, () => {
+      judgeLater(runId, 7200, () => {
+        const decision = agentDecision(applied);
+        if (decision.ready) {
+          setJudgeStep("Agent chooses next test: " + decision.challenge.challenger.strategy + ".");
+        } else {
+          setJudgeStep("Agent chooses the next test.");
+        }
+        focusJudge("#agentPanel");
+      });
+      judgeLater(runId, 8700, () => {
+        const shown = showJudgeAgentBrief();
+        setJudgeStep(shown ? "Ready-to-test brief prepared automatically." : "Next test prepared.");
+        focusJudge("#memoryPanel");
+      });
+      judgeLater(runId, 10200, () => {
         const challenge = whatWouldChangeMyMind(applied);
         if (challenge.ready && challenge.possible) {
           setJudgeStep(challenge.challenger.strategy + " ≥ " + challenge.threshold.toFixed(1) + " " + challenge.metric.label + " would change my mind.");
         } else {
-          setJudgeStep("Now add one result.");
+          setJudgeStep("Creator Lab states what evidence would change its theory.");
         }
         focusJudge("#memoryPanel");
       });
-      judgeLater(
-        runId,
-        11800,
-        () => {
-          const challengeBefore =
-            whatWouldChangeMyMind(
-              applied
-            );
-
-          judgeMemoryChanged =
-            applyJudgeDemoResult();
-
-          /*
-            Render Creator Memory NOW,
-            while the camera is still
-            focused on the Memory panel.
-
-            This makes the DEMO RESULT
-            row and updated observation
-            visibly arrive on screen.
-          */
-          renderCreatorMemory();
-
-          if (
-            challengeBefore.ready &&
-            challengeBefore.possible
-          ) {
-            setJudgeStep(
-              "Demo Result: 95.0 " +
-              challengeBefore
-                .metric
-                .label +
-              " · threshold " +
-              challengeBefore
-                .threshold
-                .toFixed(1) +
-              " crossed."
-            );
-          } else {
-            setJudgeStep(
-              "Same controls. New evidence."
-            );
-          }
-
-          focusJudge(
-            "#memoryPanel"
-          );
+      judgeLater(runId, 12300, () => {
+        const challengeBefore = whatWouldChangeMyMind(applied);
+        const beforeCards = currentExperiments();
+        const beforePrimary = beforeCards[0] || null;
+        hideTestBrief();
+        judgeMemoryChanged = applyJudgeDemoResult();
+        renderCreatorMemory();
+        if (challengeBefore.ready && challengeBefore.possible) {
+          setJudgeStep("Demo Result 95.0 crossed the " + challengeBefore.threshold.toFixed(1) + " threshold.");
+        } else {
+          setJudgeStep("New evidence arrived.");
         }
-      );
-      judgeLater(
-        runId,
-        14500,
-        () => {
-          /*
-            Memory was already rendered
-            at 11.8s so the judge had time
-            to see the Demo Result.
-
-            Now only re-render the
-            experiments so the new
-            priority movement becomes
-            the second butterfly.
-          */
-          renderExps(
-            applied,
-            true
-          );
-
-          setJudgeStep(
-            judgeMemoryChanged
-              ? "Creator Memory updated the theory."
-              : "New evidence updated Creator Memory."
-          );
-
-          focusJudge(
-            "#experimentsPanel"
-          );
+        judgeTheoryBefore = beforePrimary ? beforePrimary.k : "Previous theory";
+        focusJudge("#memoryPanel");
+      });
+      judgeLater(runId, 14600, () => {
+        renderExps(applied, true);
+        const afterCards = currentExperiments();
+        const afterPrimary = afterCards[0] || null;
+        const beforeName = judgeTheoryBefore || "Previous theory";
+        const afterName = afterPrimary ? afterPrimary.k : "Updated theory";
+        if (judgeMemoryChanged) {
+          showJudgeTheoryFlip(beforeName, afterName);
+          setJudgeStep("Theory changed: " + beforeName + " → " + afterName + ".");
+        } else {
+          setJudgeStep("Creator Memory updated the theory.");
         }
-      );
-      judgeLater(runId, 17600, () => {
-        setJudgeStep(judgeMemoryChanged ? "Same source. Same controls. New evidence. Different recommendation." : "Same source. Same controls. New evidence. Theory updated.");
         focusJudge("#experimentsPanel");
+      });
+      judgeLater(runId, 17200, () => {
+        setJudgeStep("Same source. One variable. New evidence. Different strategy.");
+        focusJudge("#experimentsPanel");
+      });
+      judgeLater(runId, 19700, () => {
         judgeRunning = false;
         clearJudgeTimers();
         syncJudgeControls();
@@ -2392,6 +2480,10 @@
       judgeRunning = false;
       clearJudgeTimers();
       clearJudgeFocus();
+      hideTestBrief();
+      hideJudgeTheoryFlip();
+      hideJudgeScoutReplay();
+      judgeTheoryBefore = null;
       syncJudgeControls();
       const button = document.getElementById("judgeDemoBtn");
       button.classList.remove("running");
@@ -2400,6 +2492,10 @@
     }
     function resetJudgeDemo() {
       judgeDemoRunId += 1;
+      hideTestBrief();
+      hideJudgeTheoryFlip();
+      hideJudgeScoutReplay();
+      judgeTheoryBefore = null;
       clearJudgeTimers();
       clearJudgeFocus();
       judgeRunning = false;
