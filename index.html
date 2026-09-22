@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmuch3v5ci43t1i00 -->
+<!-- aha-build-id: bmuchgpzalqjyzs6q -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -334,9 +334,26 @@
       background: #0f0d0b;
     }
     .stage-poster { display: grid; place-items: center; color: var(--muted); font-size: 13px; letter-spacing: 0.08em; }
-    .stage-timeline { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-top: 12px; }
-    .stage-timeline i { height: 6px; border-radius: 99px; background: rgba(143,180,217,0.18); transition: background 240ms ease, transform 240ms ease; }
-    .stage-timeline.lit i { background: rgba(143,180,217,0.78); transform: scaleY(1.3); }
+    .stage-real-timeline { position: relative; height: 28px; margin-top: 12px; }
+    .stage-timeline-track {
+      position: absolute; left: 0; right: 0; top: 13px; height: 2px; border-radius: 999px;
+      background: rgba(143, 180, 217, 0.18);
+    }
+    .stage-moment-tick { position: absolute; top: 7px; transform: translateX(-50%); }
+    .stage-moment-tick i {
+      display: block; width: 12px; height: 12px; border-radius: 50%;
+      border: 1px solid rgba(143, 180, 217, 0.42); background: #151310;
+      transition: background 260ms ease, transform 260ms ease, box-shadow 260ms ease;
+    }
+    .stage-moment-tick.lit i {
+      background: #8fb4d9; transform: scale(1.12);
+      box-shadow: 0 0 0 4px rgba(143, 180, 217, 0.08);
+    }
+    .stage-result-label {
+      display: inline-block; margin-right: 8px; padding: 3px 7px; border-radius: 999px;
+      border: 1px solid rgba(232, 163, 90, 0.45); color: var(--accent);
+      font-size: 11px; letter-spacing: 0.08em;
+    }
     .stage-section-label { font-size: 11px; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 10px; }
     .stage-experiment-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; height: calc(100% - 22px); }
     .stage-card {
@@ -838,6 +855,30 @@
       </div>
     </section>
   </div>
+  <div class="experiment-stage" id="experimentStage" hidden>
+    <header class="stage-header">
+      <div>
+        <div class="stage-brand">CREATOR LAB</div>
+        <div class="stage-thesis" id="stageThesis">Same source. One changed variable. Different strategy.</div>
+      </div>
+      <div class="stage-header-actions">
+        <span class="stage-mode-label" id="stageModeLabel">LIVE SOURCE</span>
+        <button type="button" id="stageReplayBtn">▶ 20s Stage Replay</button>
+        <button type="button" id="stageCloseBtn" aria-label="Close Experiment Stage">×</button>
+      </div>
+    </header>
+    <main class="stage-grid">
+      <section class="stage-source" id="stageSource"></section>
+      <section class="stage-experiments">
+        <div class="stage-section-label">THREE EXPERIMENTS</div>
+        <div class="stage-experiment-list" id="stageExperimentList"></div>
+      </section>
+      <aside class="stage-agent" id="stageAgent"></aside>
+    </main>
+    <section class="stage-threshold" id="stageThreshold"></section>
+    <div class="stage-toast" id="stageToast" hidden></div>
+  </div>
+
   <script>
     const CREATOR_LAB_CONFIG = {
       analyzeUrl: window.CREATOR_LAB_ANALYZE_URL || "/api/analyze-source"
@@ -2749,7 +2790,12 @@
       const label = document.getElementById("stageModeLabel");
       if (label) label.textContent = options.demoReplay || !live ? (live ? "LIVE SOURCE" : (stageReplayRunning ? "DEMO REPLAY" : "DEMO SOURCE")) : "LIVE SOURCE";
       const moments = sourceDoc.moments || [];
-      const lit = options.timelineLit ? " lit" : "";
+      const duration = Number(sourceDoc.duration) || 1;
+      const timelineHtml = moments.length ? moments.map(moment => {
+        const time = Math.max(0, Number(moment.start) || 0);
+        const left = Math.max(1, Math.min(99, (time / duration) * 100));
+        return `<span class="stage-moment-tick ${options.timelineLit ? "lit" : ""}" style="left:${left}%;" title="${esc(fmt(time) + " · " + (moment.type || "moment"))}"><i></i></span>`;
+      }).join("") : "";
       const preview = live && videoUrl
         ? `<video muted playsinline src="${videoUrl}"></video>`
         : `<div class="stage-poster">DEMO SOURCE</div>`;
@@ -2758,8 +2804,8 @@
         <div class="stage-thesis" style="font-size:22px;margin:0 0 8px">${esc(sourceDoc.title || "Source")}</div>
         <p class="mode">${esc(sourceDoc.analysisMode || "")}</p>
         ${preview}
-        <div class="stage-timeline${lit}">${Array.from({ length: 8 }, (_, i) => `<i style="transition-delay:${i * 60}ms"></i>`).join("")}</div>
-        <p class="mode" style="margin-top:8px">${esc((moments[0] && (moments[0].label || moments[0].text)) || "Source map")}</p>
+        <div class="stage-real-timeline"><div class="stage-timeline-track"></div>${timelineHtml}</div>
+        <p class="mode" style="margin-top:8px">${esc((moments[0] && (moments[0].description || moments[0].label || moments[0].text)) || "Source map")}</p>
       `;
     }
     function renderStageCards(options = {}) {
@@ -2801,14 +2847,17 @@
       const el = document.getElementById("stageAgent");
       const decision = agentDecision(applied);
       const challenge = whatWouldChangeMyMind(applied);
-      const leader = challenge.ready ? challenge.leader.strategy : "—";
-      const next = challenge.ready ? challenge.challenger.strategy : "—";
+      const historicalLeader = challenge.ready ? challenge.leader.strategy : "—";
+      const sourcePriority = decision.currentSourcePriority ? String(decision.currentSourcePriority.k || "").toUpperCase() : "—";
+      const next = decision.challengerCard ? String(decision.challengerCard.k || "").toUpperCase() : (decision.ready ? decision.challenge.challenger.strategy : "—");
       const why = challenge.ready ? thresholdText(challenge) : (challenge.reason || "Analyze a source first.");
       const thresh = challenge.ready && challenge.possible ? challenge.threshold.toFixed(1) : null;
+      const theoryBlock = decision.leaderSupported || !challenge.ready
+        ? `<div class="mode">CURRENT THEORY</div><div class="big">${esc(historicalLeader)}</div>`
+        : `<div class="mode">MEMORY LEADER</div><div class="big">${esc(historicalLeader)}</div><div class="mode">CURRENT SOURCE PRIORITY</div><div class="big">${esc(sourcePriority)}</div><p class="why">This source has no ${esc(historicalLeader)} beat. Creator Lab will not invent one.</p>`;
       el.innerHTML = `
         <h2>LOCAL EXPERIMENT AGENT</h2>
-        <div class="mode">CURRENT THEORY</div>
-        <div class="big">${esc(leader)}</div>
+        ${theoryBlock}
         <div class="mode">NEXT TEST</div>
         <div class="big">${esc(next)}</div>
         <p class="why">WHY<br>${esc(why)}</p>
@@ -2818,33 +2867,37 @@
     }
     function renderStageThreshold(options = {}) {
       const el = document.getElementById("stageThreshold");
+      const decision = agentDecision(applied);
       const challenge = whatWouldChangeMyMind(applied);
       const leader = challenge.ready ? challenge.leader.strategy : "THEORY";
-      const next = challenge.ready ? challenge.challenger.strategy : "NEXT TEST";
+      const next = decision.challengerCard ? String(decision.challengerCard.k || "").toUpperCase() : (challenge.ready ? challenge.challenger.strategy : "NEXT TEST");
       const threshold = challenge.ready ? challenge.threshold : 0;
       const received = options.received;
-      const upper = challenge.ready ? metricUpperBound(challenge.metric?.key) : 100;
-      const scale = upper === 100 || upper == null && !(received > 100 || threshold > 100)
-        ? (upper === 100 ? 100 : Math.max(threshold * 1.25, (received || 0) * 1.15, 10))
-        : (upper === 100 ? 100 : Math.max(threshold * 1.25, (received || 0) * 1.15, 10));
       const visualScale = (challenge.metric && metricUpperBound(challenge.metric.key) === 100) ? 100 : Math.max(threshold * 1.25, (Number(received) || 0) * 1.15, 10);
       const tPct = Math.max(0, Math.min(100, (threshold / visualScale) * 100));
       const rPct = received == null ? null : Math.max(0, Math.min(100, (Number(received) / visualScale) * 100));
       const flipped = options.flipped;
       const resultDot = rPct == null ? "" : `<span class="result" style="left:${rPct}%"></span>`;
+      const demoLabel = received != null && (stageReplayRunning || stageSandboxSnapshot)
+        ? `<span class="stage-result-label">DEMO RESULT</span>` : "";
       const meta = challenge.ready && challenge.possible
-        ? `${threshold.toFixed(1)} required${received != null ? "  " + Number(received).toFixed(1) + " received" : ""}`
+        ? `${threshold.toFixed(1)} required${received != null ? " " + demoLabel + Number(received).toFixed(1) + " received" : ""}`
         : esc(thresholdText(challenge));
+      const leftLabel = decision.leaderSupported || !challenge.ready ? leader : ("MEMORY LEADER · " + leader);
+      const rightLabel = decision.leaderSupported || !challenge.ready ? next : ("NEXT TEST · " + next);
+      const extra = (!decision.leaderSupported && challenge.ready)
+        ? `<div class="mode">Current source priority: ${esc(decision.currentSourcePriority ? String(decision.currentSourcePriority.k || "").toUpperCase() : "—")}</div>` : "";
       const flipLine = flipped
         ? `<div class="stage-flip">THEORY FLIPPED<br>${esc(options.beforeName || leader)} → ${esc(options.afterName || next)}</div>`
         : (options.held ? `<div class="stage-flip">THEORY HELD<br>New evidence was not strong enough.</div>` : "");
       el.innerHTML = `
         <h2>WHAT WOULD CHANGE MY MIND?</h2>
         <div class="stage-meter-row">
-          <strong>${esc(leader)}</strong>
+          <strong>${esc(leftLabel)}</strong>
           <div class="stage-meter"><span class="fill" style="width:${tPct}%"></span><span class="dot" style="left:${tPct}%"></span>${resultDot}</div>
-          <strong>${esc(next)}</strong>
+          <strong>${esc(rightLabel)}</strong>
         </div>
+        ${extra}
         <div class="stage-meter-meta">${meta}</div>
         ${flipLine}
       `;
@@ -3020,28 +3073,5 @@
       if (!judgeMode) setStage("Three experiments.");
     }, 2800);
   </script>
-  <div class="experiment-stage" id="experimentStage" hidden>
-    <header class="stage-header">
-      <div>
-        <div class="stage-brand">CREATOR LAB</div>
-        <div class="stage-thesis" id="stageThesis">Same source. One changed variable. Different strategy.</div>
-      </div>
-      <div class="stage-header-actions">
-        <span class="stage-mode-label" id="stageModeLabel">LIVE SOURCE</span>
-        <button type="button" id="stageReplayBtn">▶ 20s Stage Replay</button>
-        <button type="button" id="stageCloseBtn" aria-label="Close Experiment Stage">×</button>
-      </div>
-    </header>
-    <main class="stage-grid">
-      <section class="stage-source" id="stageSource"></section>
-      <section class="stage-experiments">
-        <div class="stage-section-label">THREE EXPERIMENTS</div>
-        <div class="stage-experiment-list" id="stageExperimentList"></div>
-      </section>
-      <aside class="stage-agent" id="stageAgent"></aside>
-    </main>
-    <section class="stage-threshold" id="stageThreshold"></section>
-    <div class="stage-toast" id="stageToast" hidden></div>
-  </div>
 </body>
 </html>
