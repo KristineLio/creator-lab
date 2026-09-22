@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmuccqtbtj3ua96cg -->
+<!-- aha-build-id: bmucczh1p8fkjuty1 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -693,6 +693,7 @@
     let judgeRunning = false;
     let judgeMemoryChanged = false;
     let autoScoutRunning = false;
+    let scoutMetadata = new Map();
     let transcriptOrigin = "demo";
     let sourceReady = true;
     function activeUserMemory() {
@@ -1603,11 +1604,29 @@
       document.getElementById("why").classList.add("show");
     }
 
+    function sourceLineKey(time, text) {
+      return String(Math.round(Number(time) || 0)) + "|" + String(text || "").trim().toLowerCase();
+    }
+
+    function rememberScoutMetadata(lines) {
+      scoutMetadata = new Map();
+      (Array.isArray(lines) ? lines : []).forEach(line => {
+        if (!line?.scoutGenerated) return;
+        scoutMetadata.set(sourceLineKey(line.t, line.text), {
+          scoutGenerated: true,
+          visualImpact: Number(line.visualImpact) || 0
+        });
+      });
+    }
+
     function parseTranscript(text) {
-      return text.split(/\n+/).map(line => {
+      return String(text || "").split(/\n+/).map(line => {
         const m = line.match(/(\d{1,2}):(\d{2})\s+(.+)/);
         if (!m) return null;
-        return { t: (+m[1]) * 60 + (+m[2]), text: m[3].trim() };
+        const parsed = { t: (+m[1]) * 60 + (+m[2]), text: m[3].trim() };
+        const metadata = scoutMetadata.get(sourceLineKey(parsed.t, parsed.text));
+        if (!metadata) return parsed;
+        return { ...parsed, ...metadata };
       }).filter(Boolean);
     }
 
@@ -1943,6 +1962,7 @@
         err.textContent = "Choose a playable local video before running Auto Scout.";
         return;
       }
+      scoutMetadata = new Map();
       const file = document.getElementById("file").files[0];
       const title = file ? file.name : "Uploaded source";
       const duration = video.duration;
@@ -1960,6 +1980,7 @@
           proc.textContent = "Local Visual Scout: " + current + "/" + total + " frames sampled…";
         });
         const generated = autoScoutNotes(samples, duration);
+        rememberScoutMetadata(generated);
         const existing = parseTranscript(input.value);
         const merged = mergeSourceNotes(existing, generated);
         input.value = formatSourceNotes(merged);
@@ -1986,6 +2007,7 @@
       }
     }
     function loadDemo() {
+      scoutMetadata = new Map();
       hideTestBrief();
       DEMO_SOURCE.id = sourceFingerprint(DEMO_SOURCE);
       sourceDoc = DEMO_SOURCE;
@@ -2010,6 +2032,7 @@
     document.getElementById("file").addEventListener("change", e => {
       const f = e.target.files && e.target.files[0];
       if (!f) return;
+      scoutMetadata = new Map();
       document.getElementById("srcMeta").textContent = f.name + " · loading duration…";
       if (videoUrl) URL.revokeObjectURL(videoUrl);
       videoUrl = URL.createObjectURL(f);
