@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmuchgpzalqjyzs6q -->
+<!-- aha-build-id: bmuckslpqg1cg8k1w -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -360,20 +360,33 @@
       min-height: 0;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      padding: 12px;
+      gap: 7px;
+      padding: 11px;
       border-radius: 14px;
       border: 1px solid rgba(255,247,236,0.08);
       background: rgba(0,0,0,0.18);
       animation: stageCardIn 520ms ease both;
     }
-    .stage-card.next { border-color: rgba(143,180,217,0.7); box-shadow: 0 0 0 1px rgba(143,180,217,0.18); }
-    .stage-card.theory { border-color: rgba(232,163,90,0.7); }
+    .stage-card.next { border-color: rgba(143, 180, 217, 0.72); box-shadow: 0 0 0 1px rgba(143, 180, 217, 0.12); }
+    .stage-card.theory { border-color: rgba(232, 163, 90, 0.72); box-shadow: 0 0 0 1px rgba(232, 163, 90, 0.08); }
     .stage-card.next.pulse { animation: stagePulse 900ms ease infinite; }
-    .stage-badge { font-size: 11px; letter-spacing: 0.08em; color: var(--accent); }
-    .stage-card h3 { margin: 0; font-size: 22px; font-family: "Instrument Serif", Georgia, serif; }
+    .stage-badge {
+      width: fit-content;
+      padding: 4px 7px;
+      border-radius: 999px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      border: 1px solid transparent;
+    }
+    .stage-badge.theory { color: #f3d2a8; border-color: rgba(232, 163, 90, 0.55); background: rgba(232, 163, 90, 0.10); }
+    .stage-badge.next { color: #b9d6ef; border-color: rgba(143, 180, 217, 0.58); background: rgba(143, 180, 217, 0.10); }
+    .stage-badge.alternative { color: var(--muted); border-color: rgba(255, 247, 236, 0.12); background: rgba(255, 247, 236, 0.03); }
+    .stage-card h3 { margin: 0; font-size: 23px; font-family: "Instrument Serif", Georgia, serif; }
     .stage-frame, .stage-demo-evidence {
-      height: 148px;
+      height: 176px;
+      margin: 1px 0 2px;
       border-radius: 10px;
       overflow: hidden;
       background: #201c18;
@@ -383,6 +396,18 @@
       font-size: 12px;
       text-align: center;
     }
+    @media (max-height: 820px) {
+      .stage-frame, .stage-demo-evidence { height: 158px; }
+    }
+    .stage-card-meta { color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.05em; }
+    .stage-card-hook {
+      color: var(--text); font-size: 14px !important; line-height: 1.35;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .stage-card-hyp {
+      color: var(--muted); font-size: 12px !important; line-height: 1.35;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
     .stage-frame img { width: 100%; height: 100%; object-fit: cover; opacity: 0; animation: stageFade 400ms ease forwards; }
     .stage-card p { margin: 0; font-size: 13px; line-height: 1.35; }
     .stage-agent h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: 0.12em; color: var(--muted); }
@@ -391,10 +416,29 @@
     .stage-threshold {
       min-height: 148px;
     }
+    .stage-question-kicker {
+      color: var(--accent);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      margin-bottom: 4px;
+    }
+    .experiment-stage .stage-threshold {
+      transition: border-color 260ms ease, box-shadow 260ms ease, background 260ms ease;
+    }
+    .experiment-stage.threshold-crossed .stage-threshold {
+      border-color: rgba(143, 180, 217, 0.62);
+      box-shadow: 0 0 0 1px rgba(143, 180, 217, 0.10), 0 14px 40px rgba(0, 0, 0, 0.20);
+      background: rgba(143, 180, 217, 0.055);
+    }
     .stage-threshold h2 {
+      position: relative;
+      z-index: 4;
       margin: 0 0 10px;
+      color: var(--text);
       font-family: "Instrument Serif", Georgia, serif;
-      font-size: 32px;
+      font-size: 34px;
       letter-spacing: 0.01em;
     }
     .stage-meter-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
@@ -405,8 +449,52 @@
     }
     .stage-meter .dot { background: #f3d2a8; }
     .stage-meter .result { background: #8fb4d9; width: 16px; height: 16px; border-radius: 3px; transform: translate(-50%, -50%) rotate(45deg); }
+    .stage-meter .result.arriving {
+      animation: stageResultCross 680ms cubic-bezier(0.2, 0.78, 0.25, 1) both;
+    }
+    @keyframes stageResultCross {
+      0% { left: 4%; opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(0.75); }
+      18% { opacity: 1; }
+      72% { transform: translate(-50%, -50%) rotate(45deg) scale(1.1); }
+      100% { left: var(--result-left); opacity: 1; transform: translate(-50%, -50%) rotate(45deg) scale(1); }
+    }
     .stage-meter-meta { margin-top: 10px; font-size: 16px; }
-    .stage-flip { margin-top: 8px; color: var(--accent); font-size: 20px; font-family: "Instrument Serif", Georgia, serif; }
+    .stage-flip {
+      position: relative;
+      z-index: 5;
+      width: fit-content;
+      margin-top: 10px;
+      padding: 8px 12px;
+      border: 1px solid rgba(232, 163, 90, 0.52);
+      border-radius: 12px;
+      background: rgba(232, 163, 90, 0.10);
+      color: var(--accent);
+      font-family: "Instrument Serif", Georgia, serif;
+      font-size: 24px;
+      line-height: 1.15;
+    }
+    .experiment-stage.theory-flip-focus .stage-flip {
+      animation: stageTheoryFlipReveal 620ms cubic-bezier(0.16, 0.84, 0.24, 1) both;
+    }
+    @keyframes stageTheoryFlipReveal {
+      0% { opacity: 0; transform: translateY(10px) scale(0.94); filter: blur(4px); }
+      60% { opacity: 1; transform: translateY(-1px) scale(1.025); filter: blur(0); }
+      100% { opacity: 1; transform: none; filter: none; }
+    }
+    .experiment-stage .stage-header,
+    .experiment-stage .stage-source,
+    .experiment-stage .stage-experiments,
+    .experiment-stage .stage-agent {
+      transition: opacity 360ms ease, filter 360ms ease, transform 360ms ease;
+    }
+    .experiment-stage.theory-flip-focus .stage-header,
+    .experiment-stage.theory-flip-focus .stage-source,
+    .experiment-stage.theory-flip-focus .stage-experiments,
+    .experiment-stage.theory-flip-focus .stage-agent {
+      opacity: 0.58;
+      filter: saturate(0.72);
+      transform: scale(0.995);
+    }
     .stage-toast {
       position: absolute; left: 50%; bottom: 188px; transform: translateX(-50%);
       padding: 10px 16px; border-radius: 999px; background: rgba(28,25,22,0.92);
@@ -2721,6 +2809,14 @@
       if (!match) return null;
       return Number(match[1]) * 60 + Number(match[2]);
     }
+    function stageMomentTimestamp(card) {
+      const match = String(card?.mom || "").match(/(\d{1,2}:\d{2})/);
+      return match ? match[1] : "";
+    }
+    function clearStageVisualState() {
+      const stage = document.getElementById("experimentStage");
+      stage?.classList.remove("threshold-crossed", "theory-flip-focus");
+    }
     function clearStageTimers() {
       stageReplayTimers.forEach(id => clearTimeout(id));
       stageReplayTimers = [];
@@ -2818,17 +2914,19 @@
         const status = stageCardStatus(card, index, decision);
         const seconds = experimentMomentSeconds(card);
         const strategy = String(card.k || "").toUpperCase();
+        const badgeClass = status === "CURRENT THEORY" ? "theory" : (status === "AGENT'S NEXT TEST" ? "next" : "alternative");
+        const timestamp = stageMomentTimestamp(card);
         const cls = ["stage-card", status === "CURRENT THEORY" ? "theory" : "", status === "AGENT'S NEXT TEST" || strategy === next ? "next" : "", options.pulseNext && strategy === next ? "pulse" : ""].filter(Boolean).join(" ");
         const evidence = live
           ? `<div class="stage-frame" data-seconds="${seconds ?? ""}">CAPTURING EVIDENCE…</div>`
-          : `<div class="stage-demo-evidence"><strong>DEMO EVIDENCE</strong><div>${esc(card.mom || "")}</div><div>${esc(card.ev || card.hyp || "")}</div></div>`;
+          : `<div class="stage-demo-evidence"><strong>DEMO EVIDENCE</strong><div>${esc(timestamp)}</div></div>`;
         return `<article class="${cls}" style="animation-delay:${index * 90}ms">
-          <div class="stage-badge">${esc(status)}</div>
+          <div class="stage-badge ${badgeClass}">${esc(status)}</div>
           <h3>${esc(card.k)}</h3>
           ${evidence}
-          <p>${esc(card.mom || "")}</p>
-          <p>“${esc(card.hook)}”</p>
-          <p>${esc(card.hyp)}</p>
+          <div class="stage-card-meta">${esc(timestamp)}</div>
+          <p class="stage-card-hook">“${esc(card.hook)}”</p>
+          <p class="stage-card-hyp">${esc(card.hyp)}</p>
         </article>`;
       }).join("");
     }
@@ -2877,7 +2975,7 @@
       const tPct = Math.max(0, Math.min(100, (threshold / visualScale) * 100));
       const rPct = received == null ? null : Math.max(0, Math.min(100, (Number(received) / visualScale) * 100));
       const flipped = options.flipped;
-      const resultDot = rPct == null ? "" : `<span class="result" style="left:${rPct}%"></span>`;
+      const resultDot = rPct == null ? "" : `<span class="result ${options.animateResult ? "arriving" : ""}" style="--result-left:${rPct}%; left:${rPct}%;"></span>`;
       const demoLabel = received != null && (stageReplayRunning || stageSandboxSnapshot)
         ? `<span class="stage-result-label">DEMO RESULT</span>` : "";
       const meta = challenge.ready && challenge.possible
@@ -2891,6 +2989,7 @@
         ? `<div class="stage-flip">THEORY FLIPPED<br>${esc(options.beforeName || leader)} → ${esc(options.afterName || next)}</div>`
         : (options.held ? `<div class="stage-flip">THEORY HELD<br>New evidence was not strong enough.</div>` : "");
       el.innerHTML = `
+        <div class="stage-question-kicker">CREATOR LAB'S FALSIFICATION TEST</div>
         <h2>WHAT WOULD CHANGE MY MIND?</h2>
         <div class="stage-meter-row">
           <strong>${esc(leftLabel)}</strong>
@@ -2908,6 +3007,11 @@
     }
     async function renderExperimentStage(options = {}) {
       if (!experimentStageOpen) return;
+      const stage = document.getElementById("experimentStage");
+      if (stage) {
+        stage.classList.toggle("threshold-crossed", !!options.thresholdCrossed);
+        stage.classList.toggle("theory-flip-focus", options.flipFocus === true);
+      }
       const thesis = document.getElementById("stageThesis");
       if (options.thesis && thesis) thesis.textContent = options.thesis;
       renderStageSource(options);
@@ -2929,6 +3033,7 @@
       };
     }
     function restoreStageSandbox() {
+      clearStageVisualState();
       if (!stageSandboxSnapshot) return;
       judgeMode = stageSandboxSnapshot.judgeMode;
       judgeDemoMemory = stageSandboxSnapshot.judgeDemoMemory.slice();
@@ -2949,6 +3054,7 @@
         setStage("Analyze a source before opening Experiment Stage.");
         return;
       }
+      clearStageVisualState();
       experimentStageOpen = true;
       document.body.classList.add("stage-active");
       document.getElementById("experimentStage").hidden = false;
@@ -2958,6 +3064,7 @@
       stageReplayRunId += 1;
       stageReplayRunning = false;
       clearStageTimers();
+      clearStageVisualState();
       restoreStageSandbox();
       experimentStageOpen = false;
       document.body.classList.remove("stage-active");
@@ -2975,6 +3082,7 @@
       stageReplayRunning = true;
       stageThresholdResult = null;
       stageReplayBeforeTheory = null;
+      clearStageVisualState();
       judgeMode = true;
       judgeDemoMemory = [];
       applied = { audience: "beginners", goal: "views", platform: "tiktok" };
@@ -3010,6 +3118,8 @@
         renderExperimentStage({
           timelineLit: true,
           received,
+          animateResult: true,
+          thresholdCrossed: crossed,
           toast: crossed ? "THRESHOLD CROSSED" : "New evidence arrived.",
           thesis: crossed ? "THRESHOLD CROSSED" : "New evidence arrived."
         });
@@ -3022,7 +3132,10 @@
         renderExperimentStage({
           timelineLit: true,
           received: stageThresholdResult,
+          animateResult: false,
+          thresholdCrossed: true,
           flipped,
+          flipFocus: flipped,
           held: !flipped,
           beforeName: stageReplayBeforeTheory,
           afterName,
@@ -3036,7 +3149,10 @@
         renderExperimentStage({
           timelineLit: true,
           received: stageThresholdResult,
+          animateResult: false,
+          thresholdCrossed: true,
           flipped,
+          flipFocus: false,
           held: !flipped,
           beforeName: stageReplayBeforeTheory,
           afterName,
