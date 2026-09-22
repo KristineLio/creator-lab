@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmuboto8x7ri734rn -->
+<!-- aha-build-id: bmuc9vxeg4m25bhm7 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1682,6 +1682,11 @@
     }
 
     async function runAnalysis(modeLabel, lines, title, duration) {
+      hideTestBrief();
+      setSourceReady(false);
+      if (!judgeMode) {
+        renderSourcePending();
+      }
       const err = document.getElementById("err");
       const proc = document.getElementById("proc");
       err.textContent = "";
@@ -1714,6 +1719,7 @@
     }
 
     function loadDemo() {
+      hideTestBrief();
       DEMO_SOURCE.id = sourceFingerprint(DEMO_SOURCE);
       sourceDoc = DEMO_SOURCE;
       document.getElementById("poster").classList.remove("hide");
@@ -1838,8 +1844,10 @@
           hint.textContent = "There are no saved creator results to clear. Demo Data stays as the labeled cold-start example.";
         }
         syncClearMemoryButton();
+        renderExperimentAgent();
         return;
       }
+      hideTestBrief();
       userMemory = [];
       memoryStore.clearUserData();
       document.getElementById("memoryStatus").textContent = count === 1 ? "1 saved result cleared." : (count + " saved results cleared.");
