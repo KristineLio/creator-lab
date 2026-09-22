@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmucabap1xeuzaul8 -->
+<!-- aha-build-id: bmuccqtbtj3ua96cg -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -978,10 +978,16 @@
         return { ready: false, challenge, reason: challenge.reason };
       }
       const cards = currentExperiments();
+      const leaderStrategy = challenge.leader.strategy;
+      const leaderCard = cards.find(card => String(card.k || "").toUpperCase() === leaderStrategy);
       const challengerCard = cards.find(card => String(card.k || "").toUpperCase() === challenge.challenger.strategy);
       return {
         ready: !!challengerCard,
         challenge,
+        cards,
+        leaderCard: leaderCard || null,
+        leaderSupported: !!leaderCard,
+        currentSourcePriority: cards[0] || null,
         challengerCard,
         reason: challengerCard ? "" : "The historical challenger is not supported by this source, so Creator Lab will not invent an experiment."
       };
@@ -1005,8 +1011,18 @@
         return;
       }
       const c = decision.challenge;
-      panel.innerHTML = `
+      const sourcePriority = decision.currentSourcePriority ? String(decision.currentSourcePriority.k || "").toUpperCase() : null;
+      const theoryLabel = decision.leaderSupported
+        ? `
         <div>Current theory: <strong>${esc(c.leader.strategy)}</strong></div>
+        `
+        : `
+        <div>Memory leader: <strong>${esc(c.leader.strategy)}</strong></div>
+        <div>Current source priority: <strong>${esc(sourcePriority || "NONE")}</strong></div>
+        <p class="mode">This source has no ${esc(c.leader.strategy)} beat, so Creator Lab will not invent one.</p>
+        `;
+      panel.innerHTML = `
+        ${theoryLabel}
         <div>Next test: <strong>${esc(c.challenger.strategy)}</strong></div>
         <span class="agent-threshold">What would change my mind? ${esc(thresholdText(c))}</span>
         <p class="mode">Based on recorded evidence ${esc(memoryScopeText(c.specificity))}.</p>
@@ -1118,9 +1134,12 @@
     }
 
     function momentSelectionScore(moment) {
-      return (Number(moment?.narrativeStrength) || 0) * 0.45 +
+      const base = (Number(moment?.narrativeStrength) || 0) * 0.45 +
         (Number(moment?.hookPotential) || 0) * 0.4 +
         (Number(moment?.informationDensity) || 0) * 0.15;
+      const visualImpact = Number(moment?.visualImpact) || 0;
+      const scoutBoost = moment?.scoutGenerated ? Math.min(0.12, visualImpact / 250) : 0;
+      return base + scoutBoost;
     }
     function findMoment(types) {
       const pool = sourceDoc.moments || [];
@@ -1195,7 +1214,7 @@
       }
       function card(kind, moment, hypothesis, fallbackHook) {
         const missingFailure = kind === "FAILURE" && !failureMoment;
-        const selected = missingFailure ? (findMoment(["explanation", "insight", "statement", "payoff"]) || reveal) : moment;
+        const selected = missingFailure ? (findMoment(["explanation", "insight", "payoff", "statement"]) || reveal) : moment;
         const strategyKind = missingFailure ? fallbackStrategyKind(selected) : kind;
         return {
           k: strategyKind,
@@ -1606,7 +1625,7 @@
       if (/wait|don't|dont|yet|if this works|search|begins|opens|continues/.test(t)) {
         return { type: "curiosity", narrativeStrength: 0.76, hookPotential: 0.8, informationDensity: 0.5 };
       }
-      if (/final|polished|complete|completed|finished|successfully|recovers?|recovered|loads successfully|working|works|rendered|fully visible/.test(t)) {
+      if (/final visual state|final|polished|complete|completed|finished|successfully|recovers?|recovered|loads successfully|working|works|rendered|fully visible/.test(t)) {
         return { type: "payoff", narrativeStrength: 0.86, hookPotential: 0.78, informationDensity: 0.62 };
       }
       if (/blank|empty|original|initial|starting state|starts? with/.test(t)) {
@@ -1632,7 +1651,9 @@
             why: "Taken from the timestamped source notes at " + fmt(s.t) + ".",
             narrativeStrength: profile.narrativeStrength,
             hookPotential: profile.hookPotential,
-            informationDensity: profile.informationDensity
+            informationDensity: profile.informationDensity,
+            scoutGenerated: !!s.scoutGenerated,
+            visualImpact: Number(s.visualImpact) || 0
           };
         });
     }
@@ -1791,6 +1812,11 @@
       }
       return total / a.luma.length;
     }
+    function scoutVisualImpact(sample) {
+      const difference = Number(sample?.difference) || 0;
+      const brightnessDelta = Math.abs(Number(sample?.brightnessDelta) || 0);
+      return difference + brightnessDelta * 0.6;
+    }
     async function scanVideoLocally(video, onProgress) {
       const duration = Number(video.duration);
       if (!Number.isFinite(duration) || duration <= 0) {
@@ -1823,16 +1849,29 @@
     }
     function scoutCandidates(samples, duration) {
       if (!samples.length) return [];
-      const middle = samples.slice(1);
-      const ranked = middle.slice().sort((a, b) => b.difference - a.difference);
-      const selected = [];
+      const middle = samples.slice(1).map(sample => ({ ...sample, visualImpact: scoutVisualImpact(sample) }));
       const minimumSpacing = Math.max(4, Math.min(9, duration / 18));
+      const selected = [];
+      function canAdd(sample) {
+        if (sample.difference < 5) return false;
+        return !selected.some(existing => Math.abs(existing.time - sample.time) < minimumSpacing);
+      }
+      const thirds = [
+        [0, duration / 3],
+        [duration / 3, duration * 2 / 3],
+        [duration * 2 / 3, duration + 0.1]
+      ];
+      thirds.forEach(([start, end]) => {
+        const best = middle
+          .filter(sample => sample.time >= start && sample.time < end && sample.difference >= 5)
+          .sort((a, b) => b.visualImpact - a.visualImpact)[0];
+        if (best && canAdd(best)) selected.push(best);
+      });
+      const ranked = middle.slice().sort((a, b) => b.visualImpact - a.visualImpact);
       for (const sample of ranked) {
-        if (sample.difference < 5) continue;
-        const tooClose = selected.some(existing => Math.abs(existing.time - sample.time) < minimumSpacing);
-        if (tooClose) continue;
-        selected.push(sample);
         if (selected.length >= 6) break;
+        if (!canAdd(sample)) continue;
+        selected.push(sample);
       }
       return selected.sort((a, b) => a.time - b.time);
     }
@@ -1851,16 +1890,20 @@
     function autoScoutNotes(samples, duration) {
       const candidates = scoutCandidates(samples, duration);
       const notes = [
-        { t: 0, text: "Auto Scout: opening visual state." },
+        { t: 0, text: "Auto Scout: opening visual state.", scoutGenerated: true, visualImpact: 0 },
         ...candidates.map(sample => ({
           t: Math.max(0, Math.round(sample.time)),
-          text: scoutNoteFor(sample)
+          text: scoutNoteFor(sample),
+          scoutGenerated: true,
+          visualImpact: Number(sample.visualImpact) || 0
         }))
       ];
       if (duration > 1) {
         notes.push({
           t: Math.max(0, Math.floor(duration - 1)),
-          text: "Auto Scout: final visual state."
+          text: "Auto Scout: final visual state.",
+          scoutGenerated: true,
+          visualImpact: 0
         });
       }
       const byTime = new Map();
