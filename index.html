@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmuclg48zgpucf1nr -->
+<!-- aha-build-id: bmucme3u6dmyl4obr -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -481,20 +481,32 @@
       60% { opacity: 1; transform: translateY(-1px) scale(1.025); filter: blur(0); }
       100% { opacity: 1; transform: none; filter: none; }
     }
+    .stage-source,
+    .stage-experiments,
+    .stage-agent,
+    .stage-threshold {
+      position: relative;
+      contain: paint;
+    }
+    .stage-source,
+    .stage-experiments,
+    .stage-agent {
+      overflow: hidden;
+    }
+    .stage-threshold { z-index: 3; }
     .experiment-stage .stage-header,
     .experiment-stage .stage-source,
     .experiment-stage .stage-experiments,
     .experiment-stage .stage-agent {
-      transition: opacity 360ms ease, filter 360ms ease, transform 360ms ease;
+      transition: opacity 360ms ease;
     }
     .experiment-stage.theory-flip-focus .stage-header,
     .experiment-stage.theory-flip-focus .stage-source,
     .experiment-stage.theory-flip-focus .stage-experiments,
     .experiment-stage.theory-flip-focus .stage-agent {
       opacity: 0.58;
-      filter: saturate(0.72);
-      transform: scale(0.995);
     }
+    .experiment-stage.theory-flip-focus .stage-threshold { opacity: 1; }
     .stage-toast {
       position: absolute; left: 50%; bottom: 188px; transform: translateX(-50%);
       padding: 10px 16px; border-radius: 999px; background: rgba(28,25,22,0.92);
@@ -1047,6 +1059,8 @@
     let stageThumbnailCache = new Map();
     let stageThresholdResult = null;
     let stageThresholdCrossed = false;
+    let stagePendingDemoResult = null;
+    let stagePendingCrossed = false;
     let stageReplayBeforeTheory = null;
     let stageSandboxSnapshot = null;
     let stageReplayRunId = 0;
@@ -3045,6 +3059,8 @@
       stageSandboxSnapshot = null;
       stageThresholdResult = null;
       stageThresholdCrossed = false;
+      stagePendingDemoResult = null;
+      stagePendingCrossed = false;
       stageReplayBeforeTheory = null;
       if (!judgeMode) document.body.classList.remove("judge-active");
       renderExps(applied, false);
@@ -3068,6 +3084,8 @@
       clearStageTimers();
       clearStageVisualState();
       stageThresholdCrossed = false;
+      stagePendingDemoResult = null;
+      stagePendingCrossed = false;
       restoreStageSandbox();
       experimentStageOpen = false;
       document.body.classList.remove("stage-active");
@@ -3085,6 +3103,8 @@
       stageReplayRunning = true;
       stageThresholdResult = null;
       stageThresholdCrossed = false;
+      stagePendingDemoResult = null;
+      stagePendingCrossed = false;
       stageReplayBeforeTheory = null;
       clearStageVisualState();
       judgeMode = true;
@@ -3115,11 +3135,11 @@
         const beforeCards = currentExperiments();
         stageReplayBeforeTheory = beforeCards[0] ? beforeCards[0].k : "Previous theory";
         const received = 95;
-        applyJudgeDemoResult();
-        stageThresholdResult = received;
         const crossed = challengeBefore.ready && challengeBefore.possible && received >= challengeBefore.threshold;
+        stagePendingDemoResult = received;
+        stagePendingCrossed = crossed;
+        stageThresholdResult = received;
         stageThresholdCrossed = crossed;
-        renderCreatorMemory();
         renderExperimentStage({
           timelineLit: true,
           received,
@@ -3130,6 +3150,11 @@
         });
       });
       stageLater(runId, 14500, () => {
+        if (stagePendingDemoResult != null) {
+          applyJudgeDemoResult();
+          renderCreatorMemory();
+          stagePendingDemoResult = null;
+        }
         renderExps(applied, true);
         const afterCards = currentExperiments();
         const afterName = afterCards[0] ? afterCards[0].k : "Updated theory";
