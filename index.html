@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmucn3imnggaofy1a -->
+<!-- aha-build-id: bmucou6uqiq6k3q8m -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -374,7 +374,6 @@
       border-radius: 14px;
       border: 1px solid rgba(255,247,236,0.08);
       background: rgba(0,0,0,0.18);
-      animation: stageCardIn 520ms ease both;
     }
     .stage-card.next { border-color: rgba(143, 180, 217, 0.72); box-shadow: 0 0 0 1px rgba(143, 180, 217, 0.12); }
     .stage-card.theory { border-color: rgba(232, 163, 90, 0.72); box-shadow: 0 0 0 1px rgba(232, 163, 90, 0.08); }
@@ -441,6 +440,7 @@
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
     .stage-frame img { width: 100%; height: 100%; object-fit: cover; opacity: 0; animation: stageFade 400ms ease forwards; }
+    .stage-frame img.cached { opacity: 1; animation: none; }
     .stage-card p { margin: 0; font-size: 13px; line-height: 1.35; }
     .stage-agent h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: 0.12em; color: var(--muted); }
     .stage-agent .big { font-family: "Instrument Serif", Georgia, serif; font-size: 28px; line-height: 1.1; margin: 8px 0 16px; }
@@ -1175,6 +1175,7 @@
     let stageReplayBeforeTheory = null;
     let stageSandboxSnapshot = null;
     let stageReplayRunId = 0;
+    let stageTheoryVisualReady = false;
     let transcriptOrigin = "demo";
     let sourceReady = true;
     function activeUserMemory() {
@@ -2964,9 +2965,12 @@
       const btn = document.getElementById("stageModeBtn");
       if (btn) btn.disabled = !sourceReady || judgeRunning;
     }
+    function stageThumbnailKey(seconds) {
+      return String(sourceDoc?.id || "source") + "|" + Math.round(Number(seconds) || 0);
+    }
     async function captureStageFrame(seconds) {
       if (!videoUrl || !Number.isFinite(seconds)) return null;
-      const cacheKey = String(sourceDoc?.id || "source") + "|" + Math.round(seconds);
+      const cacheKey = stageThumbnailKey(seconds);
       if (stageThumbnailCache.has(cacheKey)) return stageThumbnailCache.get(cacheKey);
       const video = document.createElement("video");
       video.src = videoUrl;
@@ -3043,9 +3047,12 @@
         const strategy = String(card.k || "").toUpperCase();
         const badgeClass = status === "CURRENT THEORY" ? "theory" : (status === "AGENT'S NEXT TEST" ? "next" : "alternative");
         const timestamp = stageMomentTimestamp(card);
+        const cachedFrame = live && Number.isFinite(seconds) ? stageThumbnailCache.get(stageThumbnailKey(seconds)) : null;
         const cls = ["stage-card", status === "CURRENT THEORY" ? "theory" : "", status === "AGENT'S NEXT TEST" || strategy === next ? "next" : "", options.pulseNext && strategy === next ? "pulse" : ""].filter(Boolean).join(" ");
         const evidence = live
-          ? `<div class="stage-frame" data-seconds="${seconds ?? ""}" data-timestamp="${esc(timestamp)}"><span class="stage-frame-time">${esc(timestamp)}</span><span class="stage-frame-loading">CAPTURING EVIDENCE…</span></div>`
+          ? (cachedFrame
+            ? `<div class="stage-frame" data-seconds="${seconds ?? ""}" data-timestamp="${esc(timestamp)}"><img class="stage-frame-img cached" alt="Source frame near selected experiment timestamp" src="${cachedFrame}"><span class="stage-frame-time">${esc(timestamp)}</span></div>`
+            : `<div class="stage-frame" data-seconds="${seconds ?? ""}" data-timestamp="${esc(timestamp)}"><span class="stage-frame-time">${esc(timestamp)}</span><span class="stage-frame-loading">CAPTURING EVIDENCE…</span></div>`)
           : `<div class="stage-demo-evidence"><strong>DEMO EVIDENCE</strong><div>${esc(timestamp)}</div></div>`;
         return `<article class="${cls}" style="--card-index:${index}; animation-delay:${index * 90}ms;">
           <div class="stage-badge ${badgeClass}">${esc(status)}</div>
@@ -3065,8 +3072,16 @@
         const url = await captureStageFrame(seconds);
         if (!experimentStageOpen) return;
         const stamp = frame.getAttribute("data-timestamp") || "";
-        if (url) frame.innerHTML = `<img alt="Source frame near selected experiment timestamp" src="${url}"><span class="stage-frame-time">${esc(stamp)}</span>`;
-        else frame.innerHTML = `<span class="stage-frame-time">${esc(stamp)}</span>Evidence unavailable`;
+        if (url) {
+          frame.innerHTML = `<img class="stage-frame-img fresh" alt="Source frame near selected experiment timestamp" src="${url}"><span class="stage-frame-time">${esc(stamp)}</span>`;
+          setTimeout(() => {
+            const img = frame.querySelector("img");
+            if (img && frame.isConnected) {
+              img.classList.remove("fresh");
+              img.classList.add("cached");
+            }
+          }, 420);
+        } else frame.innerHTML = `<span class="stage-frame-time">${esc(stamp)}</span>Evidence unavailable`;
       }
     }
     function renderStageAgent() {
@@ -3145,13 +3160,24 @@
       }
       const thesis = document.getElementById("stageThesis");
       if (options.thesis && thesis) thesis.textContent = options.thesis;
-      renderStageSource(options);
+      if (!options.preserveSource) {
+        renderStageSource(options);
+      }
       renderStageCards(options);
       renderStageAgent();
       renderStageThreshold(options);
       if (options.toast) showStageToast(options.toast);
       else if (!options.keepToast) showStageToast("");
       await fillStageThumbnails();
+    }
+    async function prewarmCurrentStageFrames() {
+      if (!isLiveStageSource()) return;
+      const cards = currentExperiments().slice(0, 3);
+      await Promise.all(cards.map(card => {
+        const seconds = experimentMomentSeconds(card);
+        if (!Number.isFinite(seconds)) return Promise.resolve(null);
+        return captureStageFrame(seconds);
+      }));
     }
     function snapshotStageSandbox() {
       stageSandboxSnapshot = {
@@ -3179,6 +3205,7 @@
       stagePendingCrossed = false;
       stageReplayBeforeTheory = null;
       stageOpeningPhase = "idle";
+      stageTheoryVisualReady = false;
       if (!judgeMode) document.body.classList.remove("judge-active");
       renderExps(applied, false);
       renderCreatorMemory();
@@ -3205,6 +3232,7 @@
       stagePendingDemoResult = null;
       stagePendingCrossed = false;
       stageOpeningPhase = "idle";
+      stageTheoryVisualReady = false;
       restoreStageSandbox();
       experimentStageOpen = false;
       document.body.classList.remove("stage-active");
@@ -3226,6 +3254,7 @@
       stagePendingCrossed = false;
       stageReplayBeforeTheory = null;
       stageOpeningPhase = "idle";
+      stageTheoryVisualReady = false;
       clearStageVisualState();
       judgeMode = true;
       judgeDemoMemory = [];
@@ -3242,21 +3271,21 @@
       });
       stageLater(runId, 1500, () => {
         stageOpeningPhase = "extract";
-        renderExperimentStage({ timelineLit: true, openingPhase: "extract", toast: "1 VIDEO → 3 TESTABLE EXPERIMENTS", thesis: "1 VIDEO → 3 TESTABLE EXPERIMENTS" });
+        renderExperimentStage({ timelineLit: true, preserveSource: true, openingPhase: "extract", toast: "1 VIDEO → 3 TESTABLE EXPERIMENTS", thesis: "1 VIDEO → 3 TESTABLE EXPERIMENTS" });
       });
       stageLater(runId, 4000, () => {
         document.getElementById("platform").value = "instagram";
         applied = { ...applied, platform: "instagram" };
         renderExps(applied, true);
         stageOpeningPhase = "branch";
-        renderExperimentStage({ timelineLit: true, openingPhase: "branch", toast: "ONE VARIABLE. DIFFERENT STRATEGY.", thesis: "TikTok → Instagram Reels" });
+        renderExperimentStage({ timelineLit: true, preserveSource: true, openingPhase: "branch", toast: "ONE VARIABLE. DIFFERENT STRATEGY.", thesis: "TikTok → Instagram Reels" });
       });
       stageLater(runId, 6000, () => {
         stageOpeningPhase = "idle";
-        renderExperimentStage({ timelineLit: true, pulseNext: true, keepToast: true, thesis: "Agent chooses the next test." });
+        renderExperimentStage({ timelineLit: true, preserveSource: true, pulseNext: true, keepToast: true, thesis: "Agent chooses the next test." });
       });
       stageLater(runId, 8500, () => {
-        renderExperimentStage({ timelineLit: true, pulseNext: true, thesis: "WHAT WOULD CHANGE MY MIND?" });
+        renderExperimentStage({ timelineLit: true, preserveSource: true, pulseNext: true, thesis: "WHAT WOULD CHANGE MY MIND?" });
       });
       stageLater(runId, 11500, () => {
         const challengeBefore = whatWouldChangeMyMind(applied);
@@ -3270,6 +3299,7 @@
         stageThresholdCrossed = crossed;
         renderExperimentStage({
           timelineLit: true,
+          preserveSource: true,
           received,
           animateResult: true,
           thresholdCrossed: crossed,
@@ -3277,35 +3307,13 @@
           thesis: crossed ? "THRESHOLD CROSSED" : "New evidence arrived."
         });
       });
-      stageLater(runId, 14500, () => {
-        if (stagePendingDemoResult != null) {
-          applyJudgeDemoResult();
-          renderCreatorMemory();
-          stagePendingDemoResult = null;
-        }
-        renderExps(applied, true);
+      function renderStageFinalHold() {
         const afterCards = currentExperiments();
         const afterName = afterCards[0] ? afterCards[0].k : "Updated theory";
         const flipped = !!(stageReplayBeforeTheory && afterName && stageReplayBeforeTheory !== afterName);
         renderExperimentStage({
           timelineLit: true,
-          received: stageThresholdResult,
-          animateResult: false,
-          thresholdCrossed: stageThresholdCrossed,
-          flipped,
-          flipFocus: flipped,
-          held: !flipped,
-          beforeName: stageReplayBeforeTheory,
-          afterName,
-          thesis: flipped ? ("THEORY FLIPPED · " + stageReplayBeforeTheory + " → " + afterName) : "THEORY HELD"
-        });
-      });
-      stageLater(runId, 17500, () => {
-        const afterCards = currentExperiments();
-        const afterName = afterCards[0] ? afterCards[0].k : "Updated theory";
-        const flipped = !!(stageReplayBeforeTheory && afterName && stageReplayBeforeTheory !== afterName);
-        renderExperimentStage({
-          timelineLit: true,
+          preserveSource: true,
           received: stageThresholdResult,
           animateResult: false,
           thresholdCrossed: stageThresholdCrossed,
@@ -3317,6 +3325,42 @@
           thesis: "Same source. One variable. New evidence. Different strategy."
         });
         stageReplayRunning = false;
+      }
+      stageLater(runId, 14500, async () => {
+        if (stagePendingDemoResult != null) {
+          applyJudgeDemoResult();
+          renderCreatorMemory();
+          stagePendingDemoResult = null;
+        }
+        renderExps(applied, true);
+        await prewarmCurrentStageFrames();
+        if (runId !== stageReplayRunId || !experimentStageOpen) return;
+        const afterCards = currentExperiments();
+        const afterName = afterCards[0] ? afterCards[0].k : "Updated theory";
+        const flipped = !!(stageReplayBeforeTheory && afterName && stageReplayBeforeTheory !== afterName);
+        renderExperimentStage({
+          timelineLit: true,
+          preserveSource: true,
+          received: stageThresholdResult,
+          animateResult: false,
+          thresholdCrossed: stageThresholdCrossed,
+          flipped,
+          flipFocus: flipped,
+          held: !flipped,
+          beforeName: stageReplayBeforeTheory,
+          afterName,
+          thesis: flipped ? ("THEORY FLIPPED · " + stageReplayBeforeTheory + " → " + afterName) : "THEORY HELD"
+        });
+        stageTheoryVisualReady = true;
+      });
+      stageLater(runId, 17500, () => {
+        if (!stageTheoryVisualReady) {
+          stageLater(runId, 120, () => {
+            if (stageTheoryVisualReady) renderStageFinalHold();
+          });
+          return;
+        }
+        renderStageFinalHold();
       });
     }
     document.getElementById("stageModeBtn").addEventListener("click", openExperimentStage);
