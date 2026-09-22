@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmuckslpqg1cg8k1w -->
+<!-- aha-build-id: bmuclg48zgpucf1nr -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1046,6 +1046,7 @@
     let stageReplayTimers = [];
     let stageThumbnailCache = new Map();
     let stageThresholdResult = null;
+    let stageThresholdCrossed = false;
     let stageReplayBeforeTheory = null;
     let stageSandboxSnapshot = null;
     let stageReplayRunId = 0;
@@ -3043,6 +3044,7 @@
       document.getElementById("platform").value = stageSandboxSnapshot.platform;
       stageSandboxSnapshot = null;
       stageThresholdResult = null;
+      stageThresholdCrossed = false;
       stageReplayBeforeTheory = null;
       if (!judgeMode) document.body.classList.remove("judge-active");
       renderExps(applied, false);
@@ -3065,6 +3067,7 @@
       stageReplayRunning = false;
       clearStageTimers();
       clearStageVisualState();
+      stageThresholdCrossed = false;
       restoreStageSandbox();
       experimentStageOpen = false;
       document.body.classList.remove("stage-active");
@@ -3081,6 +3084,7 @@
       snapshotStageSandbox();
       stageReplayRunning = true;
       stageThresholdResult = null;
+      stageThresholdCrossed = false;
       stageReplayBeforeTheory = null;
       clearStageVisualState();
       judgeMode = true;
@@ -3114,6 +3118,7 @@
         applyJudgeDemoResult();
         stageThresholdResult = received;
         const crossed = challengeBefore.ready && challengeBefore.possible && received >= challengeBefore.threshold;
+        stageThresholdCrossed = crossed;
         renderCreatorMemory();
         renderExperimentStage({
           timelineLit: true,
@@ -3133,7 +3138,7 @@
           timelineLit: true,
           received: stageThresholdResult,
           animateResult: false,
-          thresholdCrossed: true,
+          thresholdCrossed: stageThresholdCrossed,
           flipped,
           flipFocus: flipped,
           held: !flipped,
@@ -3150,7 +3155,7 @@
           timelineLit: true,
           received: stageThresholdResult,
           animateResult: false,
-          thresholdCrossed: true,
+          thresholdCrossed: stageThresholdCrossed,
           flipped,
           flipFocus: false,
           held: !flipped,
