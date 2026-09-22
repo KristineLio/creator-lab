@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmucou6uqiq6k3q8m -->
+<!-- aha-build-id: bmuct0cjzi5wusz4b -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -911,6 +911,37 @@
       body.judge-active .lab,
       body.judge-active .lower { padding-left: 12px; padding-right: 12px; }
     }
+    .experiment-pack { display: grid; gap: 14px; }
+    .pack-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .pack-title { margin-bottom: 0; }
+    .pack-id { flex: 0 0 auto; padding: 4px 7px; border: 1px solid rgba(143,180,217,0.35); border-radius: 999px; color: #b9d6ef; font-family: "IBM Plex Mono", monospace; font-size: 9px; }
+    .pack-hero-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .pack-block { padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,0.12); }
+    .pack-block span, .pack-design-grid span { display: block; margin-bottom: 5px; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 9px; letter-spacing: 0.09em; }
+    .pack-block strong { display: block; color: var(--text); font-weight: 500; line-height: 1.35; }
+    .pack-block p { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .pack-threshold-block { border-color: rgba(232,163,90,0.42); background: rgba(232,163,90,0.055); }
+    .pack-threshold-block strong { color: var(--accent); font-family: "Instrument Serif", Georgia, serif; font-size: 30px; }
+    .pack-section { padding-top: 2px; }
+    .pack-section h3 { margin: 0 0 7px; color: var(--text); font-size: 12px; font-weight: 500; }
+    .pack-section p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .pack-edit-list { margin: 0; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .pack-design-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+    .pack-design-grid p { margin: 0; color: var(--text); font-size: 12px; line-height: 1.45; }
+    .pack-controls { padding-top: 10px; border-top: 1px solid var(--line); }
+    .pack-control-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+    .pack-control { padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 10px; }
+    .pack-control b { color: var(--text); font-weight: 500; }
+    .pack-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pack-actions button { padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; background: #1c1916; color: var(--text); cursor: pointer; font: inherit; font-size: 11px; }
+    .pack-actions button.primary { border-color: #8fb4d9; background: rgba(143,180,217,0.12); color: #c7e0f5; font-weight: 600; }
+    .pack-status.success { color: #b9d6ef; }
+    .pack-status.error { color: #e3a0a0; }
+    @media (max-width: 760px) {
+      .pack-hero-grid, .pack-design-grid { grid-template-columns: 1fr; }
+      .pack-header { display: block; }
+      .pack-id { display: inline-block; margin-top: 8px; }
+    }
   </style>
 </head>
 <body>
@@ -1274,6 +1305,238 @@
       s = Math.max(0, Math.floor(s || 0));
       return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
     }
+    function parseClipWindow(value) {
+      const text = String(value || "");
+      const match = text.match(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/);
+      if (!match) return { display: text || "—", startSeconds: null, endSeconds: null };
+      const startSeconds = Number(match[1]) * 60 + Number(match[2]);
+      const endSeconds = Number(match[3]) * 60 + Number(match[4]);
+      return { display: fmt(startSeconds) + "–" + fmt(endSeconds), startSeconds, endSeconds };
+    }
+    function compactExperimentText(value, maxLength = 62) {
+      const cleaned = String(value || "").replace(/[“\u201d"]/g, "").replace(/\s+/g, " ").trim();
+      if (cleaned.length <= maxLength) return cleaned;
+      const clauses = cleaned.split(/\s+[—–-]\s+|[.!?]\s+/);
+      const first = String(clauses[0] || cleaned).trim();
+      if (first.length <= maxLength) return first;
+      return first.slice(0, maxLength - 1).trimEnd() + "…";
+    }
+    function experimentOnScreenText(card) {
+      return compactExperimentText(card?.hook || card?.ev || card?.k || "Start here.");
+    }
+    function experimentCaptionDraft(card, state) {
+      const sourceTitle = String(sourceDoc?.title || "this source").trim();
+      const platform = LABELS.platform[state.platform] || state.platform;
+      const goal = LABELS.goal[state.goal] || state.goal;
+      if (state.platform === "youtube") {
+        return sourceTitle + " — one creative-variable test. Same source, same audience and goal; testing a different opening strategy.";
+      }
+      if (state.goal === "qualified") {
+        return sourceTitle + " — testing one opening variable for " + goal.toLowerCase() + " on " + platform + ".";
+      }
+      return sourceTitle + " — same source, one opening variable changed.";
+    }
+    function experimentEditInstructions(card, state) {
+      const strategy = String(card?.k || "").toUpperCase();
+      const instructions = [];
+      if (strategy === "TRANSFORMATION") {
+        instructions.push("Open directly on the selected payoff/result beat.");
+        instructions.push("Put the opening text on the first readable frame; do not add setup before the reveal.");
+      } else if (strategy === "CURIOSITY") {
+        instructions.push("Open before the payoff so the first beat creates an unresolved question.");
+        instructions.push("Do not reveal the answer/result in the first beat or caption.");
+      } else if (strategy === "FAILURE") {
+        instructions.push("Open on the real failure/problem beat supported by the source.");
+        instructions.push("Show the problem before the fix; do not manufacture or exaggerate a failure.");
+      } else {
+        instructions.push("Open on the selected source-grounded beat.");
+        instructions.push("Do not relabel the moment as a failure or transformation unless the source supports it.");
+      }
+      if (state.platform === "tiktok") instructions.push("Keep the first cut immediate and remove dead air before the opening beat.");
+      else if (state.platform === "instagram") instructions.push("Make the first frame readable immediately and keep the opening visually clean for Reels.");
+      else if (state.platform === "youtube") instructions.push("Use the selected beat as a cold open, then preserve enough context for the longer setup/payoff arc.");
+      instructions.push("Stay inside the selected clip window unless source continuity requires a minimal transition.");
+      return instructions;
+    }
+    function experimentControls(state) {
+      return [
+        { key: "audience", label: "Audience", value: LABELS.audience[state.audience] || state.audience },
+        { key: "goal", label: "Goal", value: LABELS.goal[state.goal] || state.goal },
+        { key: "platform", label: "Platform", value: LABELS.platform[state.platform] || state.platform },
+        { key: "source", label: "Source", value: sourceDoc?.title || "Current source" },
+        { key: "caption_structure", label: "Caption / CTA", value: "Keep the same structure and CTA across compared variants." }
+      ];
+    }
+    function experimentPackId(card, challenge, state) {
+      const raw = [
+        sourceDoc?.id || "",
+        card?.experimentId || "",
+        String(card?.k || ""),
+        String(challenge?.metric?.key || ""),
+        Number.isFinite(challenge?.threshold) ? challenge.threshold.toFixed(4) : "",
+        state.audience,
+        state.goal,
+        state.platform
+      ].join("|");
+      return "PACK-" + hash32(raw).slice(0, 8);
+    }
+    function buildExperimentPack(card, challenge, state) {
+      if (!card || !challenge || !challenge.ready || !challenge.possible) return null;
+      const clip = parseClipWindow(card.mom);
+      const controls = experimentControls(state);
+      const thresholdValue = Number(challenge.threshold);
+      const thresholdDisplay = thresholdValue.toFixed(1) + " or higher on " + challenge.metric.label;
+      return {
+        schemaVersion: 1,
+        packId: experimentPackId(card, challenge, state),
+        source: { id: sourceDoc.id, title: sourceDoc.title, analysisMode: sourceDoc.analysisMode },
+        experiment: { id: card.experimentId, lineageKey: card.lineageKey, strategy: String(card.k || "").toUpperCase(), changedVariable: "Opening strategy" },
+        execution: {
+          clip,
+          sourceEvidence: card.ev,
+          openingHook: card.hook,
+          onScreenText: experimentOnScreenText(card),
+          captionDraft: experimentCaptionDraft(card, state),
+          editInstructions: experimentEditInstructions(card, state)
+        },
+        design: {
+          platform: LABELS.platform[state.platform] || state.platform,
+          audience: LABELS.audience[state.audience] || state.audience,
+          goal: LABELS.goal[state.goal] || state.goal,
+          hypothesis: card.hyp,
+          expectedBehavior: card.beh,
+          primaryMetric: { key: challenge.metric.key, label: challenge.metric.label },
+          falsificationThreshold: { value: thresholdValue, display: thresholdDisplay, possible: true },
+          controls
+        }
+      };
+    }
+    function experimentPackMarkdown(pack) {
+      const controls = pack.design.controls.map(item => "- " + item.label + ": " + item.value).join("\n");
+      const edits = pack.execution.editInstructions.map((item, index) => (index + 1) + ". " + item).join("\n");
+      return [
+        "# Creator Lab Experiment Pack",
+        "",
+        "**Pack ID:** " + pack.packId,
+        "**Experiment ID:** " + pack.experiment.id,
+        "**Source:** " + pack.source.title,
+        "",
+        "## Test",
+        "",
+        "**Strategy:** " + pack.experiment.strategy,
+        "**Platform:** " + pack.design.platform,
+        "**Audience:** " + pack.design.audience,
+        "**Goal:** " + pack.design.goal,
+        "**Changed variable:** " + pack.experiment.changedVariable,
+        "",
+        "## Creative execution",
+        "",
+        "**Clip:** `" + pack.execution.clip.display + "`",
+        "",
+        "**Source evidence:** " + pack.execution.sourceEvidence,
+        "",
+        "**Opening hook:** " + pack.execution.openingHook,
+        "",
+        "**On-screen text:** " + pack.execution.onScreenText,
+        "",
+        "**Caption draft:**",
+        "",
+        pack.execution.captionDraft,
+        "",
+        "## Edit plan",
+        "",
+        edits,
+        "",
+        "## Experiment design",
+        "",
+        "**Hypothesis:** " + pack.design.hypothesis,
+        "",
+        "**Primary metric:** " + pack.design.primaryMetric.label,
+        "",
+        "**What would change the theory?** " + pack.design.falsificationThreshold.display,
+        "",
+        "## Keep constant",
+        "",
+        controls,
+        "",
+        "---",
+        "",
+        "Prepared locally by Creator Lab from the current source, Agent decision, and Creator Memory state."
+      ].join("\n");
+    }
+    function experimentPackJson(pack) {
+      return JSON.stringify(pack, null, 2);
+    }
+    function safeExportName(value) {
+      const clean = String(value || "creator-lab").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      return clean || "creator-lab";
+    }
+    function downloadTextFile(filename, content, type) {
+      const blob = new Blob([content], { type: type || "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => { URL.revokeObjectURL(url); }, 0);
+    }
+    async function copyExperimentPack() {
+      const pack = preparedExperimentPack;
+      const status = document.getElementById("experimentPackStatus");
+      if (!pack) {
+        if (status) {
+          status.textContent = "Prepare an experiment pack first.";
+          status.className = "mode pack-status error";
+        }
+        return;
+      }
+      const text = experimentPackMarkdown(pack);
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          throw new Error("Clipboard API unavailable.");
+        }
+        if (status) {
+          status.textContent = "Experiment Pack copied.";
+          status.className = "mode pack-status success";
+        }
+      } catch {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        let copied = false;
+        try {
+          copied = document.execCommand("copy");
+        } catch {
+          copied = false;
+        }
+        area.remove();
+        if (status) {
+          status.textContent = copied ? "Experiment Pack copied." : "Copy was blocked by the browser. Export the Markdown file instead.";
+          status.className = copied ? "mode pack-status success" : "mode pack-status error";
+        }
+      }
+    }
+    function exportExperimentPackMarkdown() {
+      const pack = preparedExperimentPack;
+      if (!pack) return;
+      const base = safeExportName(sourceDoc.title) + "-" + pack.experiment.strategy.toLowerCase() + "-" + pack.packId.toLowerCase();
+      downloadTextFile(base + ".md", experimentPackMarkdown(pack), "text/markdown;charset=utf-8");
+    }
+    function exportExperimentPackJson() {
+      const pack = preparedExperimentPack;
+      if (!pack) return;
+      const base = safeExportName(sourceDoc.title) + "-" + pack.experiment.strategy.toLowerCase() + "-" + pack.packId.toLowerCase();
+      downloadTextFile(base + ".json", experimentPackJson(pack), "application/json;charset=utf-8");
+    }
+    let preparedExperimentPack = null;
 
     function esc(value) {
       return String(value ?? "")
@@ -1514,11 +1777,83 @@
       button.disabled = !c.possible || judgeRunning || judgeMode;
     }
     function hideTestBrief() {
+      preparedExperimentPack = null;
       const brief = document.getElementById("testBrief");
       if (brief) {
         brief.hidden = true;
         brief.innerHTML = "";
       }
+    }
+    function renderExperimentPack(pack) {
+      const brief = document.getElementById("testBrief");
+      if (!brief || !pack) return;
+      preparedExperimentPack = pack;
+      const controls = pack.design.controls.map(item => `<span class="pack-control"><b>${esc(item.label)}</b> ${esc(item.value)}</span>`).join("");
+      const edits = pack.execution.editInstructions.map(item => `<li>${esc(item)}</li>`).join("");
+      brief.hidden = false;
+      brief.innerHTML = `
+        <div class="experiment-pack">
+          <div class="pack-header">
+            <div>
+              <div class="kicker">EXPERIMENT PACK · READY TO RUN</div>
+              <div class="hook pack-title">${esc(pack.experiment.strategy)} Test — ${esc(pack.design.platform)}</div>
+            </div>
+            <span class="pack-id">${esc(pack.packId)}</span>
+          </div>
+          <div class="pack-hero-grid">
+            <div class="pack-block">
+              <span>CLIP</span>
+              <strong>${esc(pack.execution.clip.display)}</strong>
+              <p>${esc(pack.execution.sourceEvidence)}</p>
+            </div>
+            <div class="pack-block">
+              <span>OPENING HOOK</span>
+              <strong>“${esc(pack.execution.openingHook)}”</strong>
+            </div>
+            <div class="pack-block">
+              <span>ON-SCREEN TEXT</span>
+              <strong>${esc(pack.execution.onScreenText)}</strong>
+            </div>
+            <div class="pack-block pack-threshold-block">
+              <span>WHAT WOULD CHANGE MY MIND?</span>
+              <strong>≥ ${esc(pack.design.falsificationThreshold.value.toFixed(1))}</strong>
+              <p>${esc(pack.design.primaryMetric.label)}</p>
+            </div>
+          </div>
+          <div class="pack-section">
+            <h3>Caption draft</h3>
+            <p class="pack-copy-text">${esc(pack.execution.captionDraft)}</p>
+          </div>
+          <div class="pack-section">
+            <h3>Edit plan</h3>
+            <ol class="pack-edit-list">${edits}</ol>
+          </div>
+          <div class="pack-design-grid">
+            <div>
+              <span>HYPOTHESIS</span>
+              <p>${esc(pack.design.hypothesis)}</p>
+            </div>
+            <div>
+              <span>PRIMARY METRIC</span>
+              <p>${esc(pack.design.primaryMetric.label)}</p>
+            </div>
+            <div>
+              <span>CHANGED VARIABLE</span>
+              <p>Opening strategy → ${esc(pack.experiment.strategy)}</p>
+            </div>
+          </div>
+          <div class="pack-controls">
+            <div class="kicker">KEEP CONSTANT</div>
+            <div class="pack-control-list">${controls}</div>
+          </div>
+          <div class="pack-actions">
+            <button type="button" data-pack-action="copy" class="primary">COPY EXPERIMENT PACK</button>
+            <button type="button" data-pack-action="markdown">EXPORT .MD</button>
+            <button type="button" data-pack-action="json">EXPORT .JSON</button>
+          </div>
+          <p class="mode pack-status" id="experimentPackStatus">Built locally from the current source, Agent decision, and Creator Memory threshold.</p>
+        </div>
+      `;
     }
     function renderTestBrief(card, challenge) {
       const brief = document.getElementById("testBrief");
@@ -1548,10 +1883,12 @@
       const target = document.querySelector(`.card[data-experiment-id="${CSS.escape(card.experimentId)}"]`);
       if (target) target.classList.add("agent-next-card");
       const status = document.getElementById("memoryStatus");
+      const pack = buildExperimentPack(card, decision.challenge, applied);
+      if (!pack) return;
       if (status) {
-        status.textContent = "Next test prepared: " + card.k + ". Run this experiment, then record the result to update Creator Memory.";
+        status.textContent = "Experiment Pack ready: " + card.k + ". Run the pack, then record the result to update Creator Memory.";
       }
-      renderTestBrief(card, decision.challenge);
+      renderExperimentPack(pack);
       document.getElementById("testBrief")?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     function applyCreatorMemory(cards, state) {
@@ -2576,6 +2913,17 @@
       runAnalysis(mode, lines, title, dur);
     });
     document.getElementById("transcriptIn").addEventListener("input", updateTranscriptState);
+    const testBriefEl = document.getElementById("testBrief");
+    if (testBriefEl) {
+      testBriefEl.addEventListener("click", event => {
+        const button = event.target.closest("[data-pack-action]");
+        if (!button) return;
+        const action = button.getAttribute("data-pack-action");
+        if (action === "copy") copyExperimentPack();
+        else if (action === "markdown") exportExperimentPackMarkdown();
+        else if (action === "json") exportExperimentPackJson();
+      });
+    }
     document.getElementById("prepareNextTestBtn").addEventListener("click", prepareNextAgentTest);
     document.getElementById("autoScoutBtn").addEventListener("click", runAutoScout);
     document.getElementById("retryBtn").addEventListener("click", () => {
