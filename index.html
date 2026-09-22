@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmuc9vxeg4m25bhm7 -->
+<!-- aha-build-id: bmucabap1xeuzaul8 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -72,6 +72,16 @@
     .analysis-actions button:disabled {
       opacity: 0.5;
       cursor: default;
+    }
+    #autoScoutBtn {
+      border-color: rgba(143, 180, 217, 0.5);
+      color: #b9d6ef;
+    }
+    #autoScoutBtn.scanning {
+      opacity: 0.72;
+    }
+    .scout-note {
+      color: #b9d6ef;
     }
     textarea.tr-in {
       width: 100%; min-height: 72px; background: #1c1916; color: var(--text); border: 1px solid var(--line);
@@ -502,9 +512,11 @@
       <p class="mode">Example: 00:20 Connection error appears…</p>
       <textarea class="tr-in" id="transcriptIn" placeholder="Paste timestamped source notes here…"></textarea>
       <div class="analysis-actions">
+        <button type="button" id="autoScoutBtn">✦ Auto Scout video</button>
         <button type="button" id="analyzeBtn" class="analyze-primary">Analyze this source</button>
         <button type="button" id="retryBtn" hidden>Retry analysis</button>
       </div>
+      <p class="mode" id="autoScoutHint">Local Visual Scout · frame-change heuristics · no semantic video model.</p>
       <p class="proc" id="proc"></p>
       <p class="err" id="err"></p>
       <div class="timeline" id="timeline"></div>
@@ -680,6 +692,7 @@
     let judgeDemoRunId = 0;
     let judgeRunning = false;
     let judgeMemoryChanged = false;
+    let autoScoutRunning = false;
     let transcriptOrigin = "demo";
     let sourceReady = true;
     function activeUserMemory() {
@@ -1584,10 +1597,10 @@
       if (/broke|broken|error|fail|failed|failure|cors|bug|problem|cannot|can't|unable|timeout|disconnect|connection|crash|wrong/.test(t)) {
         return { type: "failure", narrativeStrength: 0.94, hookPotential: 0.86, informationDensity: 0.82 };
       }
-      if (/switch(?:es|ed|ing)?\s+(?:into|to)|dark mode|light mode|theme changed|theme switches|transform(?:s|ed|ing)?|before.?after/.test(t)) {
+      if (/switch(?:es|ed|ing)?\s+(?:into|to)|dark mode|light mode|theme changed|theme switches|transform(?:s|ed|ing)?|before.?after|major appearance shift|becomes significantly darker|becomes significantly brighter/.test(t)) {
         return { type: "transformation", narrativeStrength: 0.96, hookPotential: 0.92, informationDensity: 0.7 };
       }
-      if (/setting up|sets up|about to|before the|search begins|begins changing|opens again|appearance-related|appearance controls|visible ui change|next/.test(t)) {
+      if (/setting up|sets up|about to|before the|search begins|begins changing|opens again|appearance-related|appearance controls|visible ui change|strong visual state change|transition candidate|visible scene or interface change|next/.test(t)) {
         return { type: "curiosity", narrativeStrength: 0.86, hookPotential: 0.94, informationDensity: 0.58 };
       }
       if (/wait|don't|dont|yet|if this works|search|begins|opens|continues/.test(t)) {
@@ -1718,6 +1731,217 @@
       }
     }
 
+    function seekVideoFrame(video, time) {
+      return new Promise((resolve, reject) => {
+        if (!video || !Number.isFinite(video.duration)) {
+          reject(new Error("Video metadata is not ready."));
+          return;
+        }
+        const target = Math.min(Math.max(0, time), Math.max(0, video.duration - 0.05));
+        if (Math.abs(video.currentTime - target) < 0.04) {
+          resolve();
+          return;
+        }
+        let settled = false;
+        const cleanup = () => { video.removeEventListener("seeked", onSeeked); };
+        const onSeeked = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          cleanup();
+          resolve();
+        };
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(new Error("Video seek timed out."));
+        }, 2500);
+        video.addEventListener("seeked", onSeeked);
+        try {
+          video.currentTime = target;
+        } catch (error) {
+          clearTimeout(timer);
+          cleanup();
+          reject(error);
+        }
+      });
+    }
+    function frameSignature(video, canvas, ctx) {
+      const width = 48;
+      const height = 27;
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(video, 0, 0, width, height);
+      const data = ctx.getImageData(0, 0, width, height).data;
+      const luma = [];
+      let total = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const value = data[i] * 0.2126 + data[i + 1] * 0.7152 + data[i + 2] * 0.0722;
+        luma.push(value);
+        total += value;
+      }
+      return { luma, mean: total / luma.length };
+    }
+    function frameDifference(a, b) {
+      if (!a || !b || !a.luma || !b.luma || a.luma.length !== b.luma.length) return 0;
+      let total = 0;
+      for (let i = 0; i < a.luma.length; i += 1) {
+        total += Math.abs(a.luma[i] - b.luma[i]);
+      }
+      return total / a.luma.length;
+    }
+    async function scanVideoLocally(video, onProgress) {
+      const duration = Number(video.duration);
+      if (!Number.isFinite(duration) || duration <= 0) {
+        throw new Error("Video duration is unavailable.");
+      }
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) throw new Error("Canvas analysis is unavailable.");
+      const sampleCount = Math.max(10, Math.min(36, Math.ceil(duration / 4)));
+      const samples = [];
+      let previous = null;
+      for (let i = 0; i < sampleCount; i += 1) {
+        const ratio = sampleCount === 1 ? 0 : (i / (sampleCount - 1));
+        const time = Math.min(duration - 0.05, ratio * Math.max(0, duration - 0.05));
+        await seekVideoFrame(video, time);
+        const signature = frameSignature(video, canvas, ctx);
+        const difference = previous ? frameDifference(previous.signature, signature) : 0;
+        const brightnessDelta = previous ? (signature.mean - previous.signature.mean) : 0;
+        const sample = { time, difference, brightness: signature.mean, brightnessDelta, signature };
+        samples.push(sample);
+        previous = sample;
+        if (onProgress) onProgress(i + 1, sampleCount);
+      }
+      return samples.map(sample => ({
+        time: sample.time,
+        difference: sample.difference,
+        brightness: sample.brightness,
+        brightnessDelta: sample.brightnessDelta
+      }));
+    }
+    function scoutCandidates(samples, duration) {
+      if (!samples.length) return [];
+      const middle = samples.slice(1);
+      const ranked = middle.slice().sort((a, b) => b.difference - a.difference);
+      const selected = [];
+      const minimumSpacing = Math.max(4, Math.min(9, duration / 18));
+      for (const sample of ranked) {
+        if (sample.difference < 5) continue;
+        const tooClose = selected.some(existing => Math.abs(existing.time - sample.time) < minimumSpacing);
+        if (tooClose) continue;
+        selected.push(sample);
+        if (selected.length >= 6) break;
+      }
+      return selected.sort((a, b) => a.time - b.time);
+    }
+    function scoutNoteFor(sample) {
+      const delta = Number(sample.brightnessDelta) || 0;
+      if (Math.abs(delta) >= 18) {
+        return delta < 0
+          ? "Auto Scout: major appearance shift detected; the interface becomes significantly darker."
+          : "Auto Scout: major appearance shift detected; the interface becomes significantly brighter.";
+      }
+      if (sample.difference >= 18) {
+        return "Auto Scout: strong visual state change detected; useful transition candidate.";
+      }
+      return "Auto Scout: visible scene or interface change detected.";
+    }
+    function autoScoutNotes(samples, duration) {
+      const candidates = scoutCandidates(samples, duration);
+      const notes = [
+        { t: 0, text: "Auto Scout: opening visual state." },
+        ...candidates.map(sample => ({
+          t: Math.max(0, Math.round(sample.time)),
+          text: scoutNoteFor(sample)
+        }))
+      ];
+      if (duration > 1) {
+        notes.push({
+          t: Math.max(0, Math.floor(duration - 1)),
+          text: "Auto Scout: final visual state."
+        });
+      }
+      const byTime = new Map();
+      notes.forEach(note => {
+        if (!byTime.has(note.t)) byTime.set(note.t, note);
+      });
+      return [...byTime.values()].sort((a, b) => a.t - b.t);
+    }
+    function formatSourceNotes(lines) {
+      return lines.map(line => fmt(line.t) + " " + line.text).join("\n");
+    }
+    function mergeSourceNotes(existing, generated) {
+      const all = [...existing, ...generated];
+      const seen = new Set();
+      return all.sort((a, b) => a.t - b.t).filter(line => {
+        const key = String(Math.round(line.t)) + "|" + String(line.text || "").trim().toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+    function syncAutoScoutButton() {
+      const button = document.getElementById("autoScoutBtn");
+      const video = document.getElementById("vid");
+      if (!button) return;
+      const localVideoReady = !!video?.src && Number.isFinite(video.duration) && video.duration > 0;
+      button.disabled = judgeMode || autoScoutRunning || !localVideoReady;
+    }
+    async function runAutoScout() {
+      if (autoScoutRunning || judgeMode) return;
+      const video = document.getElementById("vid");
+      const button = document.getElementById("autoScoutBtn");
+      const proc = document.getElementById("proc");
+      const err = document.getElementById("err");
+      const input = document.getElementById("transcriptIn");
+      if (!video || !video.src || !Number.isFinite(video.duration) || video.duration <= 0) {
+        err.textContent = "Choose a playable local video before running Auto Scout.";
+        return;
+      }
+      const file = document.getElementById("file").files[0];
+      const title = file ? file.name : "Uploaded source";
+      const duration = video.duration;
+      const originalTime = video.currentTime;
+      autoScoutRunning = true;
+      button.disabled = true;
+      button.classList.add("scanning");
+      err.textContent = "";
+      setSourceReady(false);
+      clearSourceDerivedUI();
+      renderSourcePending();
+      try {
+        video.pause();
+        const samples = await scanVideoLocally(video, (current, total) => {
+          proc.textContent = "Local Visual Scout: " + current + "/" + total + " frames sampled…";
+        });
+        const generated = autoScoutNotes(samples, duration);
+        const existing = parseTranscript(input.value);
+        const merged = mergeSourceNotes(existing, generated);
+        input.value = formatSourceNotes(merged);
+        transcriptOrigin = "user";
+        updateTranscriptState();
+        proc.textContent = "Auto Scout found " + generated.length + " visual checkpoints. Building experiments…";
+        await runAnalysis("Local Visual Scout · frame-change heuristics · no semantic video model", merged, title, duration);
+        const hint = document.getElementById("autoScoutHint");
+        if (hint) {
+          hint.textContent = "Auto Scout drafted visual checkpoints locally. Edit/add semantic notes when you want Creator Lab to understand meaning such as a bug or failure.";
+        }
+      } catch (error) {
+        setSourceReady(false);
+        proc.textContent = "";
+        err.textContent = "Auto Scout could not read this video's frames. You can still paste timestamped source notes manually.";
+        renderSourcePending();
+      } finally {
+        try {
+          await seekVideoFrame(video, originalTime);
+        } catch {}
+        autoScoutRunning = false;
+        button.classList.remove("scanning");
+        syncAutoScoutButton();
+      }
+    }
     function loadDemo() {
       hideTestBrief();
       DEMO_SOURCE.id = sourceFingerprint(DEMO_SOURCE);
@@ -1736,6 +1960,7 @@
       renderCreatorMemory();
       populateMemoryExperimentSelect();
       updateTranscriptState();
+      syncAutoScoutButton();
       setStage("One source.");
     }
 
@@ -1763,8 +1988,10 @@
       document.getElementById("proc").textContent = "";
       document.getElementById("err").textContent = "";
       document.getElementById("analysisMode").textContent = "Video loaded — add timestamped transcript or source notes, then Analyze. No silent auto-watch.";
+      syncAutoScoutButton();
       v.onloadedmetadata = () => {
         document.getElementById("srcMeta").textContent = f.name + " · " + fmt(v.duration);
+        syncAutoScoutButton();
       };
       updateTranscriptState();
       setStage("New source loaded. Waiting for source notes.");
@@ -1798,6 +2025,7 @@
     });
     document.getElementById("transcriptIn").addEventListener("input", updateTranscriptState);
     document.getElementById("prepareNextTestBtn").addEventListener("click", prepareNextAgentTest);
+    document.getElementById("autoScoutBtn").addEventListener("click", runAutoScout);
     document.getElementById("retryBtn").addEventListener("click", () => {
       clearCurrentAnalysisCache();
       document.getElementById("analyzeBtn").click();
@@ -1894,7 +2122,7 @@
     }
     function syncJudgeControls() {
       const sandboxLocked = judgeMode;
-      ["recordResultBtn", "clearMemoryBtn", "analyzeBtn", "retryBtn", "demoBtn", "prepareNextTestBtn"].forEach(id => {
+      ["recordResultBtn", "clearMemoryBtn", "analyzeBtn", "retryBtn", "demoBtn", "prepareNextTestBtn", "autoScoutBtn"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = sandboxLocked;
       });
@@ -1905,6 +2133,7 @@
         if (el) el.disabled = judgeRunning;
       });
       syncClearMemoryButton();
+      syncAutoScoutButton();
     }
     function prepareJudgeDemo() {
       clearJudgeTimers();
