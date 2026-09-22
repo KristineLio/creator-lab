@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmucwg2tg22emauku -->
+<!-- aha-build-id: bmucwpvlfq3matp4b -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2008,12 +2008,14 @@
     }
     function normalizeImportedSource(source) {
       if (!source || typeof source !== "object" || !source.id || !source.title || !Number.isFinite(Number(source.duration)) || !Array.isArray(source.moments) || !Array.isArray(source.transcript)) return null;
+      const rawMode = String(source.analysisMode || "saved analysis");
+      const cleanMode = rawMode.replace(/^(?:Imported workspace snapshot ·\s*)+/i, "");
       return {
         id: String(source.id),
         title: String(source.title),
         duration: Number(source.duration),
         summary: String(source.summary || ""),
-        analysisMode: "Imported workspace snapshot · " + String(source.analysisMode || "saved analysis"),
+        analysisMode: "Imported workspace snapshot · " + (cleanMode || "saved analysis"),
         moments: source.moments,
         transcript: source.transcript
       };
@@ -3870,6 +3872,14 @@
     function isLiveStageSource() {
       return !!videoUrl && transcriptOrigin !== "demo";
     }
+    function isImportedWorkspaceSource() {
+      return !videoUrl && String(sourceDoc?.analysisMode || "").startsWith("Imported workspace snapshot ·");
+    }
+    function stageSourceKind() {
+      if (isLiveStageSource()) return "live";
+      if (isImportedWorkspaceSource()) return "imported";
+      return "demo";
+    }
     function experimentMomentSeconds(card) {
       const match = String(card?.mom || "").match(/(\d{1,2}):(\d{2})/);
       if (!match) return null;
@@ -3951,9 +3961,15 @@
     }
     function renderStageSource(options = {}) {
       const el = document.getElementById("stageSource");
-      const live = isLiveStageSource();
+      const kind = stageSourceKind();
+      const live = kind === "live";
+      const imported = kind === "imported";
       const label = document.getElementById("stageModeLabel");
-      if (label) label.textContent = options.demoReplay || !live ? (live ? "LIVE SOURCE" : (stageReplayRunning ? "DEMO REPLAY" : "DEMO SOURCE")) : "LIVE SOURCE";
+      if (label) {
+        if (live) label.textContent = "LIVE SOURCE";
+        else if (imported) label.textContent = stageReplayRunning ? "IMPORTED REPLAY" : "IMPORTED SOURCE";
+        else label.textContent = stageReplayRunning ? "DEMO REPLAY" : "DEMO SOURCE";
+      }
       const moments = sourceDoc.moments || [];
       const duration = Number(sourceDoc.duration) || 1;
       const timelineHtml = moments.length ? moments.map((moment, index) => {
@@ -3964,9 +3980,11 @@
       }).join("") : "";
       const preview = live && videoUrl
         ? `<video muted playsinline src="${videoUrl}"></video>`
-        : `<div class="stage-poster">DEMO SOURCE</div>`;
+        : imported
+          ? `<div class="stage-poster">IMPORTED ANALYSIS</div>`
+          : `<div class="stage-poster">DEMO SOURCE</div>`;
       el.innerHTML = `
-        <div class="stage-section-label">${esc(live ? "LIVE SOURCE" : "DEMO SOURCE")}</div>
+        <div class="stage-section-label">${esc(live ? "LIVE SOURCE" : imported ? "IMPORTED SOURCE" : "DEMO SOURCE")}</div>
         <div class="stage-thesis" style="font-size:22px;margin:0 0 8px">${esc(sourceDoc.title || "Source")}</div>
         <p class="mode">${esc(sourceDoc.analysisMode || "")}</p>
         <div class="stage-source-visual">${preview}<div class="stage-scan-line" aria-hidden="true"></div></div>
@@ -3979,7 +3997,9 @@
       const cards = currentExperiments().slice(0, 3);
       const decision = agentDecision(applied);
       const next = decision.ready ? decision.challenge.challenger.strategy : null;
-      const live = isLiveStageSource();
+      const kind = stageSourceKind();
+      const live = kind === "live";
+      const imported = kind === "imported";
       list.innerHTML = cards.map((card, index) => {
         const status = stageCardStatus(card, index, decision);
         const seconds = experimentMomentSeconds(card);
@@ -3992,7 +4012,9 @@
           ? (cachedFrame
             ? `<div class="stage-frame" data-seconds="${seconds ?? ""}" data-timestamp="${esc(timestamp)}"><img class="stage-frame-img cached" alt="Source frame near selected experiment timestamp" src="${cachedFrame}"><span class="stage-frame-time">${esc(timestamp)}</span></div>`
             : `<div class="stage-frame" data-seconds="${seconds ?? ""}" data-timestamp="${esc(timestamp)}"><span class="stage-frame-time">${esc(timestamp)}</span><span class="stage-frame-loading">CAPTURING EVIDENCE…</span></div>`)
-          : `<div class="stage-demo-evidence"><strong>DEMO EVIDENCE</strong><div>${esc(timestamp)}</div></div>`;
+          : imported
+            ? `<div class="stage-demo-evidence"><strong>IMPORTED EVIDENCE</strong><div>${esc(timestamp)}</div></div>`
+            : `<div class="stage-demo-evidence"><strong>DEMO EVIDENCE</strong><div>${esc(timestamp)}</div></div>`;
         return `<article class="${cls}" style="--card-index:${index}; animation-delay:${index * 90}ms;">
           <div class="stage-badge ${badgeClass}">${esc(status)}</div>
           <h3>${esc(card.k)}</h3>
