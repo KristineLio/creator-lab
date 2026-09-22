@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmuct0cjzi5wusz4b -->
+<!-- aha-build-id: bmucvdcfyxyqj5w8y -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -937,6 +937,10 @@
     .pack-actions button.primary { border-color: #8fb4d9; background: rgba(143,180,217,0.12); color: #c7e0f5; font-weight: 600; }
     .pack-status.success { color: #b9d6ef; }
     .pack-status.error { color: #e3a0a0; }
+    .pack-copy-basis { width: fit-content; margin-top: 5px; padding: 3px 6px; border: 1px solid rgba(143,180,217,0.30); border-radius: 999px; color: #b9d6ef; font-family: "IBM Plex Mono", monospace; font-size: 8px; letter-spacing: 0.08em; }
+    .pack-copy-note { margin: -3px 0 0; }
+    .pack-evidence-block { border-color: rgba(255,247,236,0.10); background: rgba(255,247,236,0.018); }
+    .pack-evidence-block p { color: var(--muted); }
     @media (max-width: 760px) {
       .pack-hero-grid, .pack-design-grid { grid-template-columns: 1fr; }
       .pack-header { display: block; }
@@ -1313,35 +1317,164 @@
       const endSeconds = Number(match[3]) * 60 + Number(match[4]);
       return { display: fmt(startSeconds) + "–" + fmt(endSeconds), startSeconds, endSeconds };
     }
-    function compactExperimentText(value, maxLength = 62) {
-      const cleaned = String(value || "").replace(/[“\u201d"]/g, "").replace(/\s+/g, " ").trim();
-      if (cleaned.length <= maxLength) return cleaned;
-      const clauses = cleaned.split(/\s+[—–-]\s+|[.!?]\s+/);
-      const first = String(clauses[0] || cleaned).trim();
-      if (first.length <= maxLength) return first;
-      return first.slice(0, maxLength - 1).trimEnd() + "…";
+    const EXPERIMENT_PACK_COPY_VERSION = "creator-ready-v1";
+    function isInternalCreatorLabText(value) {
+      const text = String(value || "").trim();
+      if (!text) return false;
+      return /^Auto Scout:/i.test(text) || /Local Visual Scout/i.test(text) || /static fallback/i.test(text) || /frame-change heuristic/i.test(text) || /live AI/i.test(text);
     }
-    function experimentOnScreenText(card) {
-      return compactExperimentText(card?.hook || card?.ev || card?.k || "Start here.");
+    function usableHumanTranscriptLines() {
+      return (sourceDoc?.transcript || []).filter(line => {
+        const text = String(line?.text || "").trim();
+        if (!text) return false;
+        if (line?.scoutGenerated) return false;
+        if (isInternalCreatorLabText(text)) return false;
+        return true;
+      });
     }
-    function experimentCaptionDraft(card, state) {
-      const sourceTitle = String(sourceDoc?.title || "this source").trim();
-      const platform = LABELS.platform[state.platform] || state.platform;
-      const goal = LABELS.goal[state.goal] || state.goal;
-      if (state.platform === "youtube") {
-        return sourceTitle + " — one creative-variable test. Same source, same audience and goal; testing a different opening strategy.";
+    function nearestHumanSourceLine(seconds, maxDistance = 14) {
+      const time = Number(seconds);
+      if (!Number.isFinite(time)) return null;
+      const lines = usableHumanTranscriptLines();
+      if (!lines.length) return null;
+      let best = null;
+      let bestDistance = Infinity;
+      lines.forEach(line => {
+        const lineTime = Number(line?.t);
+        if (!Number.isFinite(lineTime)) return;
+        const distance = Math.abs(lineTime - time);
+        if (distance < bestDistance) {
+          best = line;
+          bestDistance = distance;
+        }
+      });
+      if (!best || bestDistance > maxDistance) return null;
+      return best;
+    }
+    function creatorSentences(value) {
+      return String(value || "").replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/).map(item => item.trim()).filter(Boolean);
+    }
+    function creatorSentenceScore(sentence, strategy) {
+      const text = String(sentence || "").toLowerCase();
+      const kind = String(strategy || "").toUpperCase();
+      const KEYWORDS = {
+        TRANSFORMATION: ["finally", "worked", "working", "rendered", "finished", "fixed", "result", "became", "changed"],
+        CURIOSITY: ["wait", "if ", "don't", "dont", "what", "next", "maybe", "not sure", "wonder"],
+        FAILURE: ["broke", "error", "bug", "failed", "wrong", "crash", "problem", "cors"],
+        PAYOFF: ["fixed", "worked", "solved", "finally", "result"],
+        INSIGHT: ["because", "reason", "learned", "realized", "decision"],
+        EXPLANATION: ["because", "how", "why", "reason"]
+      };
+      const words = KEYWORDS[kind] || [];
+      return words.reduce((score, word) => score + (text.includes(word) ? 1 : 0), 0);
+    }
+    function bestHumanSentenceForCard(card) {
+      const line = nearestHumanSourceLine(card?.start);
+      if (!line) return null;
+      const sentences = creatorSentences(line.text);
+      if (!sentences.length) return null;
+      const ranked = sentences.map((sentence, index) => ({
+        sentence,
+        index,
+        score: creatorSentenceScore(sentence, card?.k)
+      })).sort((a, b) => b.score - a.score || a.index - b.index);
+      return ranked[0]?.sentence || null;
+    }
+    function cleanCreatorSentence(value, maxLength = 96) {
+      let text = String(value || "").replace(/^[\s—–-]+/, "").replace(/^(okay|ok|wait)[,:\s—–-]+/i, "").replace(/\s+/g, " ").trim();
+      if (!text) return "";
+      if (text.length > maxLength) text = text.slice(0, maxLength - 1).trimEnd() + "…";
+      return text;
+    }
+    function scoutExecutionCue(card) {
+      const evidence = String(card?.ev || "").toLowerCase();
+      if (evidence.includes("significantly brighter")) {
+        return { kind: "interface_change", direction: "brighter", hook: "This is the moment the interface changes.", overlay: "The moment the interface changes" };
       }
+      if (evidence.includes("significantly darker")) {
+        return { kind: "interface_change", direction: "darker", hook: "This is the moment the interface changes.", overlay: "The moment the interface changes" };
+      }
+      if (evidence.includes("visual state change") || evidence.includes("scene or interface change") || evidence.includes("appearance shift")) {
+        return { kind: "visual_change", direction: null, hook: "Watch the visual change here.", overlay: "Watch the visual change" };
+      }
+      return { kind: "source_beat", direction: null, hook: "Watch this moment closely.", overlay: "Watch this moment" };
+    }
+    function visualOnlyCreatorCopy(card) {
+      const cue = scoutExecutionCue(card);
+      const strategy = String(card?.k || "").toUpperCase();
+      if (strategy === "CURIOSITY") {
+        return { hook: "Something changes here — can you spot it?", overlay: "Can you spot the change?" };
+      }
+      if (strategy === "FAILURE") return { hook: cue.hook, overlay: cue.overlay };
+      if (strategy === "INSIGHT" || strategy === "EXPLANATION") {
+        return { hook: "Here’s the part worth noticing.", overlay: "The part worth noticing" };
+      }
+      if (strategy === "PAYOFF" || strategy === "SOURCE BEAT") return { hook: cue.hook, overlay: cue.overlay };
+      return { hook: cue.hook, overlay: cue.overlay };
+    }
+    function creatorReadyHook(card) {
+      const humanSentence = bestHumanSentenceForCard(card);
+      if (humanSentence) return cleanCreatorSentence(humanSentence, 96);
+      return visualOnlyCreatorCopy(card).hook;
+    }
+    function creatorReadyOverlay(card) {
+      const humanSentence = bestHumanSentenceForCard(card);
+      if (humanSentence) {
+        const cleaned = cleanCreatorSentence(humanSentence, 48);
+        if (cleaned && cleaned.length <= 48) return cleaned;
+      }
+      return visualOnlyCreatorCopy(card).overlay;
+    }
+    function creatorSourceTitle() {
+      const raw = String(sourceDoc?.title || "").replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+      if (!raw) return "";
+      const generic = /^(main|video|clip|recording|screen recording|untitled|source|export)(\s*\d+)?$/i;
+      if (generic.test(raw)) return "";
+      return raw;
+    }
+    function sourceCreativeContext() {
+      const humanText = usableHumanTranscriptLines().map(line => line.text).join(" ").toLowerCase();
+      const allEvidence = (sourceDoc?.moments || []).map(moment => [moment.description, moment.evidence, moment.type].join(" ")).join(" ").toLowerCase();
+      const text = (humanText + " " + allEvidence).trim();
+      if (/\b(api|code|coding|build|project|bug|cors|request|rendered|app)\b/.test(text)) return "build";
+      if (/\b(interface|ui|screen|visual|appearance)\b/.test(text)) return "interface";
+      return "general";
+    }
+    function creatorReadyCaption(state) {
+      const title = creatorSourceTitle();
+      const context = sourceCreativeContext();
+      let base = "";
+      if (title) base = "A look behind " + title + " — from the first version through the key changes.";
+      else if (context === "build") base = "A look at the build from the first attempt through the changes that shaped the result.";
+      else if (context === "interface") base = "A look at how the interface changes through the process.";
+      else base = "A look at the source from the opening state through the key changes.";
       if (state.goal === "qualified") {
-        return sourceTitle + " — testing one opening variable for " + goal.toLowerCase() + " on " + platform + ".";
+        if (context === "build") return base + " Want the breakdown behind it?";
+        return base + " Want the breakdown?";
       }
-      return sourceTitle + " — same source, one opening variable changed.";
+      return base;
+    }
+    function experimentCopyBasis(card) {
+      const humanLine = nearestHumanSourceLine(card?.start);
+      if (humanLine) {
+        return {
+          mode: "source_transcript",
+          label: "Source transcript",
+          detail: "Hook and overlay are grounded in creator/source words near the selected moment."
+        };
+      }
+      return {
+        mode: "visual_heuristic",
+        label: "Visual heuristic",
+        detail: "No semantic source line was available near this moment, so Creator Lab uses conservative visual-only wording."
+      };
     }
     function experimentEditInstructions(card, state) {
       const strategy = String(card?.k || "").toUpperCase();
       const instructions = [];
       if (strategy === "TRANSFORMATION") {
         instructions.push("Open directly on the selected payoff/result beat.");
-        instructions.push("Put the opening text on the first readable frame; do not add setup before the reveal.");
+        instructions.push("Place the on-screen text on the first readable frame and remove setup before the reveal.");
       } else if (strategy === "CURIOSITY") {
         instructions.push("Open before the payoff so the first beat creates an unresolved question.");
         instructions.push("Do not reveal the answer/result in the first beat or caption.");
@@ -1352,8 +1485,8 @@
         instructions.push("Open on the selected source-grounded beat.");
         instructions.push("Do not relabel the moment as a failure or transformation unless the source supports it.");
       }
-      if (state.platform === "tiktok") instructions.push("Keep the first cut immediate and remove dead air before the opening beat.");
-      else if (state.platform === "instagram") instructions.push("Make the first frame readable immediately and keep the opening visually clean for Reels.");
+      if (state.platform === "tiktok") instructions.push("Start on the selected beat immediately and remove dead air before it.");
+      else if (state.platform === "instagram") instructions.push("Make the first frame readable immediately; keep text inside the safe area and avoid visual clutter.");
       else if (state.platform === "youtube") instructions.push("Use the selected beat as a cold open, then preserve enough context for the longer setup/payoff arc.");
       instructions.push("Stay inside the selected clip window unless source continuity requires a minimal transition.");
       return instructions;
@@ -1369,6 +1502,7 @@
     }
     function experimentPackId(card, challenge, state) {
       const raw = [
+        EXPERIMENT_PACK_COPY_VERSION,
         sourceDoc?.id || "",
         card?.experimentId || "",
         String(card?.k || ""),
@@ -1386,17 +1520,23 @@
       const controls = experimentControls(state);
       const thresholdValue = Number(challenge.threshold);
       const thresholdDisplay = thresholdValue.toFixed(1) + " or higher on " + challenge.metric.label;
+      const copyBasis = experimentCopyBasis(card);
+      const openingHook = creatorReadyHook(card);
+      const onScreenText = creatorReadyOverlay(card);
+      const captionDraft = creatorReadyCaption(state);
       return {
-        schemaVersion: 1,
+        schemaVersion: 2,
+        copyVersion: EXPERIMENT_PACK_COPY_VERSION,
         packId: experimentPackId(card, challenge, state),
         source: { id: sourceDoc.id, title: sourceDoc.title, analysisMode: sourceDoc.analysisMode },
         experiment: { id: card.experimentId, lineageKey: card.lineageKey, strategy: String(card.k || "").toUpperCase(), changedVariable: "Opening strategy" },
         execution: {
           clip,
           sourceEvidence: card.ev,
-          openingHook: card.hook,
-          onScreenText: experimentOnScreenText(card),
-          captionDraft: experimentCaptionDraft(card, state),
+          copyBasis,
+          openingHook,
+          onScreenText,
+          captionDraft,
           editInstructions: experimentEditInstructions(card, state)
         },
         design: {
@@ -1435,6 +1575,8 @@
         "",
         "**Source evidence:** " + pack.execution.sourceEvidence,
         "",
+        "**Copy basis:** " + pack.execution.copyBasis.label,
+        "",
         "**Opening hook:** " + pack.execution.openingHook,
         "",
         "**On-screen text:** " + pack.execution.onScreenText,
@@ -1442,6 +1584,8 @@
         "**Caption draft:**",
         "",
         pack.execution.captionDraft,
+        "",
+        "_Copy note: " + pack.execution.copyBasis.detail + "_",
         "",
         "## Edit plan",
         "",
@@ -1796,6 +1940,7 @@
           <div class="pack-header">
             <div>
               <div class="kicker">EXPERIMENT PACK · READY TO RUN</div>
+              <div class="pack-copy-basis">COPY BASIS · ${esc(pack.execution.copyBasis.label)}</div>
               <div class="hook pack-title">${esc(pack.experiment.strategy)} Test — ${esc(pack.design.platform)}</div>
             </div>
             <span class="pack-id">${esc(pack.packId)}</span>
@@ -1804,6 +1949,9 @@
             <div class="pack-block">
               <span>CLIP</span>
               <strong>${esc(pack.execution.clip.display)}</strong>
+            </div>
+            <div class="pack-block pack-evidence-block">
+              <span>SOURCE EVIDENCE</span>
               <p>${esc(pack.execution.sourceEvidence)}</p>
             </div>
             <div class="pack-block">
@@ -1823,6 +1971,7 @@
           <div class="pack-section">
             <h3>Caption draft</h3>
             <p class="pack-copy-text">${esc(pack.execution.captionDraft)}</p>
+            <p class="mode pack-copy-note">${esc(pack.execution.copyBasis.detail)}</p>
           </div>
           <div class="pack-section">
             <h3>Edit plan</h3>
