@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmucwpvlfq3matp4b -->
+<!-- aha-build-id: bmue0ok66jynwe0w0 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -283,7 +283,7 @@
       inset: 0;
       z-index: 10000;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr) auto;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
       gap: 14px;
       padding: 18px 22px 20px;
       overflow: hidden;
@@ -295,6 +295,87 @@
     .stage-brand { font-size: 13px; letter-spacing: 0.16em; color: var(--muted); }
     .stage-thesis { font-family: "Instrument Serif", Georgia, serif; font-size: 28px; line-height: 1.12; margin-top: 4px; }
     .stage-header-actions { display: flex; align-items: center; gap: 10px; }
+    .stage-signature {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid rgba(143,180,217,.20);
+      border-radius: 12px;
+      background: rgba(143,180,217,.035);
+    }
+    .stage-signature span {
+      flex: 0 0 auto;
+      color: #b9d6ef;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .11em;
+    }
+    .stage-signature strong {
+      color: var(--text);
+      font-family: "Instrument Serif", Georgia, serif;
+      font-size: 20px;
+      font-weight: 400;
+      line-height: 1.1;
+    }
+    .stage-challenge-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,247,236,.08);
+    }
+    .stage-challenge-copy span {
+      display: block;
+      color: #b9d6ef;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: .10em;
+    }
+    .stage-challenge-copy strong {
+      display: block;
+      margin-top: 3px;
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .stage-challenge-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .stage-challenge-actions button {
+      padding: 7px 9px;
+      border: 1px solid rgba(255,247,236,.14);
+      border-radius: 999px;
+      background: rgba(255,247,236,.035);
+      color: var(--muted);
+      cursor: pointer;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 8px;
+      letter-spacing: .05em;
+    }
+    .stage-challenge-actions button.cross {
+      border-color: rgba(143,180,217,.60);
+      background: rgba(143,180,217,.10);
+      color: #c7e0f5;
+    }
+    #stageChallengeBtn {
+      padding: 8px 12px;
+      border: 1px solid rgba(143,180,217,.60);
+      border-radius: 999px;
+      background: rgba(143,180,217,.10);
+      color: #c7e0f5;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
     .stage-mode-label {
       padding: 4px 8px;
       border: 1px solid rgba(143, 180, 217, 0.4);
@@ -984,7 +1065,7 @@
   <header class="top">
     <div>
       <div class="brand">Creator Lab</div>
-      <div class="tag">Same source. One changed variable. Different strategy.</div>
+      <div class="tag">An experiment agent that tells you what evidence would change its mind.</div>
     </div>
     <div class="tag" id="stageLine">One source.</div>
     <button type="button" id="judgeDemoBtn" class="judge-demo-btn">▶ 20s Demo</button>
@@ -1160,9 +1241,14 @@
       <div class="stage-header-actions">
         <span class="stage-mode-label" id="stageModeLabel">LIVE SOURCE</span>
         <button type="button" id="stageReplayBtn">▶ 20s Stage Replay</button>
+        <button type="button" id="stageChallengeBtn" hidden>⚗ Challenge the theory</button>
         <button type="button" id="stageCloseBtn" aria-label="Close Experiment Stage">×</button>
       </div>
     </header>
+    <div class="stage-signature" id="stageSignature">
+      <span>FALSIFIABLE BY DESIGN</span>
+      <strong>It tells you exactly what evidence would make it change its mind.</strong>
+    </div>
     <main class="stage-grid">
       <section class="stage-source" id="stageSource"></section>
       <section class="stage-experiments">
@@ -1282,6 +1368,8 @@
     let stageSandboxSnapshot = null;
     let stageReplayRunId = 0;
     let stageTheoryVisualReady = false;
+    let stageChallengeMode = false;
+    let stageChallengeBeforeTheory = null;
     let transcriptOrigin = "demo";
     let sourceReady = true;
     function activeUserMemory() {
@@ -3697,7 +3785,7 @@
       syncJudgeControls();
       setJudgeStep("Local Scout maps the source.");
     }
-    function applyJudgeDemoResult() {
+    function applyJudgeDemoResult(earlyHold = 95) {
       const beforeCards = currentExperiments();
       const beforePrimary = beforeCards[0] || null;
       const curiosity = beforeCards.find(card => String(card.k || "").toUpperCase() === "CURIOSITY");
@@ -3716,7 +3804,7 @@
         platform: "instagram",
         audience: "beginners",
         goal: "views",
-        metrics: { views: 5000, earlyHold: 95, completion: 70, saves: 150, shares: 80, profileVisits: 120, follows: 70, clicks: 25 }
+        metrics: { views: 5000, earlyHold: Number(earlyHold), completion: 70, saves: 150, shares: 80, profileVisits: 120, follows: 70, clicks: 25 }
       };
       judgeDemoMemory = judgeDemoMemory.filter(entry => entry.id !== demoResult.id);
       judgeDemoMemory.push(demoResult);
@@ -4092,6 +4180,23 @@
       const flipLine = flipped
         ? `<div class="stage-flip">THEORY FLIPPED<br>${esc(options.beforeName || leader)} → ${esc(options.afterName || next)}</div>`
         : (options.held ? `<div class="stage-flip">THEORY HELD<br>New evidence was not strong enough.</div>` : "");
+      let challengeControls = "";
+      if (options.challengeMode === true && challenge.ready && challenge.possible) {
+        const belowValue = Math.max(0, challenge.threshold - 5);
+        const aboveValue = Math.min(100, challenge.threshold + 14);
+        challengeControls = `
+        <div class="stage-challenge-controls">
+          <div class="stage-challenge-copy">
+            <span>TRY THE FALSIFICATION TEST</span>
+            <strong>Same source. Same controls. Change only the evidence.</strong>
+          </div>
+          <div class="stage-challenge-actions">
+            <button type="button" data-stage-result="${belowValue}">${belowValue.toFixed(1)} · BELOW REQUIRED</button>
+            <button type="button" class="cross" data-stage-result="${aboveValue}">${aboveValue.toFixed(1)} · CROSS REQUIRED</button>
+            <button type="button" data-stage-challenge-reset>RESET</button>
+          </div>
+        </div>`;
+      }
       el.innerHTML = `
         <div class="stage-question-kicker">CREATOR LAB'S FALSIFICATION TEST</div>
         <h2>WHAT WOULD CHANGE MY MIND?</h2>
@@ -4103,6 +4208,7 @@
         ${extra}
         <div class="stage-meter-meta">${meta}</div>
         ${flipLine}
+        ${challengeControls}
       `;
       requestAnimationFrame(() => {
         const fill = el.querySelector(".fill");
@@ -4167,10 +4273,90 @@
       stageReplayBeforeTheory = null;
       stageOpeningPhase = "idle";
       stageTheoryVisualReady = false;
+      stageChallengeMode = false;
+      stageChallengeBeforeTheory = null;
+      const challengeBtnReset = document.getElementById("stageChallengeBtn");
+      if (challengeBtnReset) challengeBtnReset.hidden = true;
       if (!judgeMode) document.body.classList.remove("judge-active");
       renderExps(applied, false);
       renderCreatorMemory();
       renderMemoryFields();
+    }
+    async function enterStageChallengeMode() {
+      if (!experimentStageOpen || !sourceReady) return;
+      stageReplayRunId += 1;
+      stageReplayRunning = false;
+      clearStageTimers();
+      restoreStageSandbox();
+      snapshotStageSandbox();
+      stageChallengeMode = true;
+      stageThresholdResult = null;
+      stageThresholdCrossed = false;
+      stagePendingDemoResult = null;
+      stagePendingCrossed = false;
+      stageOpeningPhase = "idle";
+      stageTheoryVisualReady = false;
+      const challengeBtn = document.getElementById("stageChallengeBtn");
+      if (challengeBtn) challengeBtn.hidden = false;
+      judgeMode = true;
+      judgeDemoMemory = [];
+      applied = {
+        audience: "beginners",
+        goal: "views",
+        platform: "instagram"
+      };
+      document.getElementById("audience").value = applied.audience;
+      document.getElementById("goal").value = applied.goal;
+      document.getElementById("platform").value = applied.platform;
+      renderExps(applied, true);
+      renderCreatorMemory();
+      stageChallengeBeforeTheory = currentExperiments()[0]?.k || "Previous theory";
+      await prewarmCurrentStageFrames();
+      if (!stageChallengeMode || !experimentStageOpen) return;
+      renderExperimentStage({
+        timelineLit: true,
+        preserveSource: true,
+        challengeMode: true,
+        thesis: "PROVE THE THEORY WRONG."
+      });
+    }
+    async function applyStageChallengeResult(value) {
+      if (!stageChallengeMode) return;
+
+      const challenge = whatWouldChangeMyMind(applied);
+      if (!challenge.ready || !challenge.possible) return;
+
+      const beforeName = currentExperiments()[0]?.k || stageChallengeBeforeTheory || "Previous theory";
+
+      judgeDemoMemory = [];
+      applyJudgeDemoResult(Number(value));
+      renderCreatorMemory();
+      renderExps(applied, true);
+      await prewarmCurrentStageFrames();
+
+      if (!stageChallengeMode || !experimentStageOpen) return;
+
+      const afterName = currentExperiments()[0]?.k || "Updated theory";
+      const flipped = beforeName !== afterName;
+      const crossed = Number(value) >= challenge.threshold;
+
+      stageThresholdResult = Number(value);
+      stageThresholdCrossed = crossed;
+
+      renderExperimentStage({
+        timelineLit: true,
+        preserveSource: true,
+        received: Number(value),
+        thresholdCrossed: crossed,
+        flipped,
+        held: !flipped,
+        beforeName,
+        afterName,
+        challengeMode: true,
+        thesis: flipped
+          ? "YOU PROVED IT WRONG. IT CHANGED ITS MIND."
+          : "NOT ENOUGH EVIDENCE. THE THEORY HOLDS."
+      });
     }
     function openExperimentStage() {
       if (!sourceReady) {
@@ -4182,7 +4368,9 @@
       experimentStageOpen = true;
       document.body.classList.add("stage-active");
       document.getElementById("experimentStage").hidden = false;
-      renderExperimentStage();
+      const challengeBtn = document.getElementById("stageChallengeBtn");
+      if (challengeBtn) challengeBtn.hidden = true;
+      renderExperimentStage({ thesis: "AN AGENT THAT CAN BE PROVEN WRONG." });
     }
     function closeExperimentStage() {
       stageReplayRunId += 1;
@@ -4194,6 +4382,8 @@
       stagePendingCrossed = false;
       stageOpeningPhase = "idle";
       stageTheoryVisualReady = false;
+      stageChallengeMode = false;
+      stageChallengeBeforeTheory = null;
       restoreStageSandbox();
       experimentStageOpen = false;
       document.body.classList.remove("stage-active");
@@ -4216,6 +4406,10 @@
       stageReplayBeforeTheory = null;
       stageOpeningPhase = "idle";
       stageTheoryVisualReady = false;
+      stageChallengeMode = false;
+      stageChallengeBeforeTheory = null;
+      const challengeBtnHide = document.getElementById("stageChallengeBtn");
+      if (challengeBtnHide) challengeBtnHide.hidden = true;
       clearStageVisualState();
       judgeMode = true;
       judgeDemoMemory = [];
@@ -4225,10 +4419,10 @@
       document.getElementById("platform").value = applied.platform;
       renderExps(applied, false);
       stageOpeningPhase = "source";
-      renderExperimentStage({ timelineLit: false, openingPhase: "source", thesis: "ONE SOURCE", toast: "" });
+      renderExperimentStage({ timelineLit: false, openingPhase: "source", thesis: "AN AGENT THAT CAN BE PROVEN WRONG.", toast: "" });
       stageLater(runId, 700, () => {
         stageOpeningPhase = "scan";
-        renderExperimentStage({ timelineLit: true, openingPhase: "scan", thesis: "LOCAL VISUAL SCOUT" });
+        renderExperimentStage({ timelineLit: true, openingPhase: "scan", thesis: "IT TELLS YOU HOW." });
       });
       stageLater(runId, 1500, () => {
         stageOpeningPhase = "extract";
@@ -4283,9 +4477,11 @@
           held: !flipped,
           beforeName: stageReplayBeforeTheory,
           afterName,
-          thesis: "Same source. One variable. New evidence. Different strategy."
+          thesis: "IT TOLD YOU WHAT WOULD CHANGE ITS MIND. THEN IT DID."
         });
         stageReplayRunning = false;
+        const challengeBtnShow = document.getElementById("stageChallengeBtn");
+        if (challengeBtnShow) challengeBtnShow.hidden = false;
       }
       stageLater(runId, 14500, async () => {
         if (stagePendingDemoResult != null) {
@@ -4327,6 +4523,15 @@
     document.getElementById("stageModeBtn").addEventListener("click", openExperimentStage);
     document.getElementById("stageCloseBtn").addEventListener("click", closeExperimentStage);
     document.getElementById("stageReplayBtn").addEventListener("click", runStageReplay);
+    document.getElementById("stageChallengeBtn").addEventListener("click", enterStageChallengeMode);
+    document.getElementById("stageThreshold").addEventListener("click", (e) => {
+      const resultBtn = e.target.closest("[data-stage-result]");
+      if (resultBtn) {
+        applyStageChallengeResult(resultBtn.getAttribute("data-stage-result"));
+        return;
+      }
+      if (e.target.closest("[data-stage-challenge-reset]")) enterStageChallengeMode();
+    });
     document.addEventListener("keydown", e => {
       if (!experimentStageOpen) return;
       if (e.key === "Escape") { e.preventDefault(); closeExperimentStage(); }
