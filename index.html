@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmue0ok66jynwe0w0 -->
+<!-- aha-build-id: bmue32e4sjl3hilbp -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1370,6 +1370,7 @@
     let stageTheoryVisualReady = false;
     let stageChallengeMode = false;
     let stageChallengeBeforeTheory = null;
+    let stageChallengeSnapshot = null;
     let transcriptOrigin = "demo";
     let sourceReady = true;
     function activeUserMemory() {
@@ -4158,9 +4159,15 @@
     function renderStageThreshold(options = {}) {
       const el = document.getElementById("stageThreshold");
       const decision = agentDecision(applied);
-      const challenge = whatWouldChangeMyMind(applied);
+      const liveChallenge = whatWouldChangeMyMind(applied);
+      const frozen = options.challengeMode === true ? (options.challengeSnapshot || stageChallengeSnapshot) : null;
+      const challenge = frozen
+        ? { ready: true, possible: true, leader: frozen.leader, challenger: frozen.challenger, metric: frozen.metric, threshold: frozen.threshold }
+        : liveChallenge;
       const leader = challenge.ready ? challenge.leader.strategy : "THEORY";
-      const next = decision.challengerCard ? String(decision.challengerCard.k || "").toUpperCase() : (challenge.ready ? challenge.challenger.strategy : "NEXT TEST");
+      const next = frozen
+        ? String(frozen.challenger?.strategy || "NEXT TEST").toUpperCase()
+        : (decision.challengerCard ? String(decision.challengerCard.k || "").toUpperCase() : (challenge.ready ? challenge.challenger.strategy : "NEXT TEST"));
       const threshold = challenge.ready ? challenge.threshold : 0;
       const received = options.received;
       const visualScale = (challenge.metric && metricUpperBound(challenge.metric.key) === 100) ? 100 : Math.max(threshold * 1.25, (Number(received) || 0) * 1.15, 10);
@@ -4275,6 +4282,7 @@
       stageTheoryVisualReady = false;
       stageChallengeMode = false;
       stageChallengeBeforeTheory = null;
+      stageChallengeSnapshot = null;
       const challengeBtnReset = document.getElementById("stageChallengeBtn");
       if (challengeBtnReset) challengeBtnReset.hidden = true;
       if (!judgeMode) document.body.classList.remove("judge-active");
@@ -4311,20 +4319,32 @@
       renderExps(applied, true);
       renderCreatorMemory();
       stageChallengeBeforeTheory = currentExperiments()[0]?.k || "Previous theory";
+      const challenge = whatWouldChangeMyMind(applied);
+      stageChallengeSnapshot =
+        challenge.ready &&
+        challenge.possible
+          ? {
+              leader: challenge.leader,
+              challenger: challenge.challenger,
+              metric: challenge.metric,
+              threshold: challenge.threshold
+            }
+          : null;
       await prewarmCurrentStageFrames();
       if (!stageChallengeMode || !experimentStageOpen) return;
       renderExperimentStage({
         timelineLit: true,
         preserveSource: true,
         challengeMode: true,
+        challengeSnapshot: stageChallengeSnapshot,
         thesis: "PROVE THE THEORY WRONG."
       });
     }
     async function applyStageChallengeResult(value) {
       if (!stageChallengeMode) return;
 
-      const challenge = whatWouldChangeMyMind(applied);
-      if (!challenge.ready || !challenge.possible) return;
+      const challenge = stageChallengeSnapshot;
+      if (!challenge) return;
 
       const beforeName = currentExperiments()[0]?.k || stageChallengeBeforeTheory || "Previous theory";
 
@@ -4353,6 +4373,7 @@
         beforeName,
         afterName,
         challengeMode: true,
+        challengeSnapshot: stageChallengeSnapshot,
         thesis: flipped
           ? "YOU PROVED IT WRONG. IT CHANGED ITS MIND."
           : "NOT ENOUGH EVIDENCE. THE THEORY HOLDS."
@@ -4384,6 +4405,7 @@
       stageTheoryVisualReady = false;
       stageChallengeMode = false;
       stageChallengeBeforeTheory = null;
+      stageChallengeSnapshot = null;
       restoreStageSandbox();
       experimentStageOpen = false;
       document.body.classList.remove("stage-active");
@@ -4408,6 +4430,7 @@
       stageTheoryVisualReady = false;
       stageChallengeMode = false;
       stageChallengeBeforeTheory = null;
+      stageChallengeSnapshot = null;
       const challengeBtnHide = document.getElementById("stageChallengeBtn");
       if (challengeBtnHide) challengeBtnHide.hidden = true;
       clearStageVisualState();
@@ -4562,3 +4585,5 @@
   </script>
 </body>
 </html>
+
+<script>/*aha-img-guard v2.1:user-relative-no-stock*/(function(){var API="https://skycastle.ai/api/img-search?q=";var bad=/images\.unsplash\.com|source\.unsplash\.com|picsum\.photos|loremflickr\.com|placekitten/;function tile(i){try{var d=document.createElement("div");d.style.cssText="width:100%;height:100%;min-height:120px;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e9dfd2,#cdb89a);color:#6b5d49;font:600 14px system-ui;text-align:center;padding:10px;box-sizing:border-box";d.textContent=i.getAttribute("alt")||"";if(i.parentNode)i.parentNode.replaceChild(d,i);}catch(e){}}function real(i){var q=(i.getAttribute("alt")||"").trim();if(!q){tile(i);return;}fetch(API+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(d){if(d&&d.url){i.onerror=function(){tile(i);};i.src=d.url;}else tile(i);}).catch(function(){tile(i);});}function userRel(sa){return!!sa&&!/^https?:\/\//i.test(sa)&&!/^\/\//.test(sa)&&!/^data:/i.test(sa)&&!/^blob:/i.test(sa);}function chk(i){if(i.__ag)return;try{if(i.closest&&i.closest("nav,footer"))return;if(i.closest&&i.closest("header")&&/\b(logo|brand|icon|wordmark)\b/i.test(i.getAttribute("alt")||""))return;}catch(e){}var s=(i.currentSrc||i.src||i.getAttribute("src")||"").trim();var sa=(i.getAttribute("src")||"").trim();var alt=(i.getAttribute("alt")||"").trim();if(bad.test(s)){i.__ag=1;real(i);return;}if(/^https?:\/\//.test(s)){i.__ag=1;i.addEventListener("error",function(){real(i);});return;}if(!sa){if(alt){i.__ag=1;real(i);}return;}i.__ag=1;var fail=function(){if(userRel(sa))tile(i);else real(i);};if(i.complete&&i.naturalWidth===0){fail();return;}i.addEventListener("error",fail);}function scan(){document.querySelectorAll("img").forEach(chk);}try{new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:["src"]});}catch(e){}document.addEventListener("DOMContentLoaded",scan);window.addEventListener("load",function(){scan();setTimeout(scan,800);setTimeout(scan,2000);});})();</script>
