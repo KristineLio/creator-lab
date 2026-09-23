@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmue32e4sjl3hilbp -->
+<!-- aha-build-id: bmue4k2yuqcbqj6on -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -298,12 +298,19 @@
     .stage-signature {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 12px;
-      min-height: 38px;
-      padding: 8px 12px;
+      min-height: 34px;
+      padding: 6px 12px;
       border: 1px solid rgba(143,180,217,.20);
       border-radius: 12px;
       background: rgba(143,180,217,.035);
+    }
+    .stage-signature-copy {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
     }
     .stage-signature span {
       flex: 0 0 auto;
@@ -316,10 +323,81 @@
     .stage-signature strong {
       color: var(--text);
       font-family: "Instrument Serif", Georgia, serif;
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 400;
       line-height: 1.1;
     }
+    .stage-loop {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      letter-spacing: .08em;
+      color: rgba(255,247,236,.38);
+    }
+    .stage-loop i { font-style: normal; opacity: .45; }
+    .stage-loop b { font-weight: 600; }
+    .stage-loop[data-step="theory"] b[data-loop-step="theory"] { color: #e8a35a; }
+    .stage-loop[data-step="test"] b[data-loop-step="test"] { color: #b9d6ef; }
+    .stage-loop[data-step="learn"] b[data-loop-step="learn"] { color: #fff7ec; }
+    .stage-theory-contract {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0;
+      margin: 6px 0 8px;
+      border-top: 1px solid rgba(255,247,236,.08);
+      border-bottom: 1px solid rgba(255,247,236,.08);
+    }
+    .stage-contract-cell {
+      padding: 4px 8px;
+      border-right: 1px solid rgba(255,247,236,.08);
+      min-width: 0;
+    }
+    .stage-contract-cell:last-child { border-right: 0; }
+    .stage-contract-cell span {
+      display: block;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 7px;
+      font-weight: 600;
+      letter-spacing: .08em;
+    }
+    .stage-contract-cell strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stage-contract-cell:nth-child(1) strong,
+    .stage-contract-cell:nth-child(3) strong { color: #e8a35a; }
+    .stage-contract-cell:nth-child(2) strong { color: #b9d6ef; }
+    .stage-contract-cell:nth-child(4) strong { color: var(--muted); font-size: 11px; }
+    @keyframes stageSwapIntoTheory {
+      from { transform: translateX(calc(100% + 10px)); opacity: .72; }
+      65% { transform: translateX(-4px); opacity: 1; }
+      to { transform: none; opacity: 1; }
+    }
+    @keyframes stageSwapIntoNext {
+      from { transform: translateX(calc(-100% - 10px)); opacity: .72; }
+      65% { transform: translateX(4px); opacity: 1; }
+      to { transform: none; opacity: 1; }
+    }
+    .stage-card.swap-into-theory {
+      animation: stageSwapIntoTheory 620ms cubic-bezier(.16,.84,.24,1) both;
+      z-index: 3;
+    }
+    .stage-card.swap-into-next {
+      animation: stageSwapIntoNext 620ms cubic-bezier(.16,.84,.24,1) both;
+      z-index: 2;
+    }
+    .experiment-stage.stage-theory-swap .stage-source { opacity: .72; }
+    .experiment-stage.stage-theory-swap .stage-card.alternative { opacity: .55; }
     .stage-challenge-controls {
       display: flex;
       align-items: center;
@@ -1246,8 +1324,17 @@
       </div>
     </header>
     <div class="stage-signature" id="stageSignature">
-      <span>FALSIFIABLE BY DESIGN</span>
-      <strong>It tells you exactly what evidence would make it change its mind.</strong>
+      <div class="stage-signature-copy">
+        <span>FALSIFIABLE BY DESIGN</span>
+        <strong>It tells you exactly what evidence would make it change its mind.</strong>
+      </div>
+      <div class="stage-loop" id="stageLoop" data-step="theory">
+        <b data-loop-step="theory">THEORY</b>
+        <i>→</i>
+        <b data-loop-step="test">TEST</b>
+        <i>→</i>
+        <b data-loop-step="learn">LEARN</b>
+      </div>
     </div>
     <main class="stage-grid">
       <section class="stage-source" id="stageSource"></section>
@@ -3999,6 +4086,27 @@
       toast.hidden = !text;
       toast.textContent = text || "";
     }
+    function setStageLoopStep(step) {
+      const loop = document.getElementById("stageLoop");
+      if (!loop) return;
+      loop.dataset.step = step || "theory";
+    }
+    function playStageTheorySwap(flipped) {
+      const stage = document.getElementById("experimentStage");
+      if (!stage || !flipped) return;
+      const cards = [...document.querySelectorAll("#stageExperimentList .stage-card")];
+      stage.classList.add("stage-theory-swap");
+      if (cards[0]) cards[0].classList.add("swap-into-theory");
+      if (cards[1]) cards[1].classList.add("swap-into-next");
+      setTimeout(() => showStageToast("THE EVIDENCE CHANGED THE AGENT."), 80);
+      setTimeout(() => {
+        showStageToast("");
+        stage.classList.remove("stage-theory-swap");
+        cards.forEach(card => {
+          card.classList.remove("swap-into-theory", "swap-into-next");
+        });
+      }, 900);
+    }
     function syncStageModeButton() {
       const btn = document.getElementById("stageModeBtn");
       if (btn) btn.disabled = !sourceReady || judgeRunning;
@@ -4096,7 +4204,7 @@
         const badgeClass = status === "CURRENT THEORY" ? "theory" : (status === "AGENT'S NEXT TEST" ? "next" : "alternative");
         const timestamp = stageMomentTimestamp(card);
         const cachedFrame = live && Number.isFinite(seconds) ? stageThumbnailCache.get(stageThumbnailKey(seconds)) : null;
-        const cls = ["stage-card", status === "CURRENT THEORY" ? "theory" : "", status === "AGENT'S NEXT TEST" || strategy === next ? "next" : "", options.pulseNext && strategy === next ? "pulse" : ""].filter(Boolean).join(" ");
+        const cls = ["stage-card", status === "CURRENT THEORY" ? "theory" : "", status === "AGENT'S NEXT TEST" || strategy === next ? "next" : "", status === "ALTERNATIVE" ? "alternative" : "", options.pulseNext && strategy === next ? "pulse" : ""].filter(Boolean).join(" ");
         const evidence = live
           ? (cachedFrame
             ? `<div class="stage-frame" data-seconds="${seconds ?? ""}" data-timestamp="${esc(timestamp)}"><img class="stage-frame-img cached" alt="Source frame near selected experiment timestamp" src="${cachedFrame}"><span class="stage-frame-time">${esc(timestamp)}</span></div>`
@@ -4104,7 +4212,7 @@
           : imported
             ? `<div class="stage-demo-evidence"><strong>IMPORTED EVIDENCE</strong><div>${esc(timestamp)}</div></div>`
             : `<div class="stage-demo-evidence"><strong>DEMO EVIDENCE</strong><div>${esc(timestamp)}</div></div>`;
-        return `<article class="${cls}" style="--card-index:${index}; animation-delay:${index * 90}ms;">
+        return `<article class="${cls}" data-stage-strategy="${esc(strategy)}" style="--card-index:${index}; animation-delay:${index * 90}ms;">
           <div class="stage-badge ${badgeClass}">${esc(status)}</div>
           <h3>${esc(card.k)}</h3>
           ${evidence}
@@ -4204,9 +4312,20 @@
           </div>
         </div>`;
       }
+      const theoryName = challenge.ready && challenge.leader ? String(challenge.leader.strategy || "—") : "—";
+      const challengerName = challenge.ready && challenge.challenger ? String(challenge.challenger.strategy || "—") : "—";
+      const evidenceLabel = challenge.ready && challenge.possible
+        ? (threshold.toFixed(1) + "%" + (challenge.metric && challenge.metric.label ? " · " + challenge.metric.label : ""))
+        : "—";
       el.innerHTML = `
-        <div class="stage-question-kicker">CREATOR LAB'S FALSIFICATION TEST</div>
+        <div class="stage-question-kicker">THEORY CONTRACT · FALSIFICATION TEST</div>
         <h2>WHAT WOULD CHANGE MY MIND?</h2>
+        <div class="stage-theory-contract">
+          <div class="stage-contract-cell"><span>CURRENT THEORY</span><strong>${esc(theoryName)}</strong></div>
+          <div class="stage-contract-cell"><span>CHALLENGER</span><strong>${esc(challengerName)}</strong></div>
+          <div class="stage-contract-cell"><span>REQUIRED EVIDENCE</span><strong>${esc(evidenceLabel)}</strong></div>
+          <div class="stage-contract-cell"><span>KEEP CONSTANT</span><strong>source · audience · goal · platform</strong></div>
+        </div>
         <div class="stage-meter-row">
           <strong>${esc(leftLabel)}</strong>
           <div class="stage-meter"><span class="fill" style="width:${tPct}%"></span><span class="dot" style="left:${tPct}%"></span><span class="stage-required-label" style="left:${tPct}%;">REQUIRED</span>${resultDot}</div>
@@ -4243,6 +4362,7 @@
       if (options.toast) showStageToast(options.toast);
       else if (!options.keepToast) showStageToast("");
       await fillStageThumbnails();
+      if (options.flipped && (options.flipFocus || options.challengeMode) && options.animateSwap !== false) playStageTheorySwap(true);
     }
     async function prewarmCurrentStageFrames() {
       if (!isLiveStageSource()) return;
@@ -4283,6 +4403,7 @@
       stageChallengeMode = false;
       stageChallengeBeforeTheory = null;
       stageChallengeSnapshot = null;
+      setStageLoopStep("theory");
       const challengeBtnReset = document.getElementById("stageChallengeBtn");
       if (challengeBtnReset) challengeBtnReset.hidden = true;
       if (!judgeMode) document.body.classList.remove("judge-active");
@@ -4339,6 +4460,7 @@
         challengeSnapshot: stageChallengeSnapshot,
         thesis: "PROVE THE THEORY WRONG."
       });
+      setStageLoopStep("test");
     }
     async function applyStageChallengeResult(value) {
       if (!stageChallengeMode) return;
@@ -4378,6 +4500,7 @@
           ? "YOU PROVED IT WRONG. IT CHANGED ITS MIND."
           : "NOT ENOUGH EVIDENCE. THE THEORY HOLDS."
       });
+      setStageLoopStep("learn");
     }
     function openExperimentStage() {
       if (!sourceReady) {
@@ -4391,6 +4514,7 @@
       document.getElementById("experimentStage").hidden = false;
       const challengeBtn = document.getElementById("stageChallengeBtn");
       if (challengeBtn) challengeBtn.hidden = true;
+      setStageLoopStep("theory");
       renderExperimentStage({ thesis: "AN AGENT THAT CAN BE PROVEN WRONG." });
     }
     function closeExperimentStage() {
@@ -4406,6 +4530,7 @@
       stageChallengeMode = false;
       stageChallengeBeforeTheory = null;
       stageChallengeSnapshot = null;
+      setStageLoopStep("theory");
       restoreStageSandbox();
       experimentStageOpen = false;
       document.body.classList.remove("stage-active");
@@ -4442,9 +4567,11 @@
       document.getElementById("platform").value = applied.platform;
       renderExps(applied, false);
       stageOpeningPhase = "source";
+      setStageLoopStep("theory");
       renderExperimentStage({ timelineLit: false, openingPhase: "source", thesis: "AN AGENT THAT CAN BE PROVEN WRONG.", toast: "" });
       stageLater(runId, 700, () => {
         stageOpeningPhase = "scan";
+        setStageLoopStep("theory");
         renderExperimentStage({ timelineLit: true, openingPhase: "scan", thesis: "IT TELLS YOU HOW." });
       });
       stageLater(runId, 1500, () => {
@@ -4463,9 +4590,11 @@
         renderExperimentStage({ timelineLit: true, preserveSource: true, pulseNext: true, keepToast: true, thesis: "Agent chooses the next test." });
       });
       stageLater(runId, 8500, () => {
+        setStageLoopStep("test");
         renderExperimentStage({ timelineLit: true, preserveSource: true, pulseNext: true, thesis: "WHAT WOULD CHANGE MY MIND?" });
       });
       stageLater(runId, 11500, () => {
+        setStageLoopStep("learn");
         const challengeBefore = whatWouldChangeMyMind(applied);
         const beforeCards = currentExperiments();
         stageReplayBeforeTheory = beforeCards[0] ? beforeCards[0].k : "Previous theory";
@@ -4500,6 +4629,7 @@
           held: !flipped,
           beforeName: stageReplayBeforeTheory,
           afterName,
+          animateSwap: false,
           thesis: "IT TOLD YOU WHAT WOULD CHANGE ITS MIND. THEN IT DID."
         });
         stageReplayRunning = false;
