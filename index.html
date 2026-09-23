@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmue4k2yuqcbqj6on -->
+<!-- aha-build-id: bmue5yr9qpro1zyes -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -47,6 +47,33 @@
       padding: 7px 12px; font: 12px "IBM Plex Sans", sans-serif; cursor: pointer;
     }
     .src-actions input[type=file] { display: none; }
+    .caption-file-action { cursor: pointer; }
+    #captionFileStatus { display: block; margin: -4px 0 10px; }
+    .source-intelligence {
+      margin: 10px 0 8px;
+      padding: 8px 10px;
+      border: 1px solid rgba(143,180,217,.18);
+      border-radius: 10px;
+      background: rgba(143,180,217,.04);
+    }
+    .source-intelligence .kicker {
+      color: #b9d6ef;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 8px;
+      letter-spacing: .12em;
+    }
+    .source-intelligence-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      letter-spacing: .04em;
+      color: var(--text);
+    }
+    .source-intelligence-stats span { color: var(--muted); }
+    #siMode { margin: 6px 0 0; }
     .analysis-actions {
       display: flex;
       gap: 8px;
@@ -958,6 +985,10 @@
     body.judge-active .demo-banner,
     body.judge-active #stageBig,
     body.judge-active #sourcePanel .src-actions,
+    body.judge-active #sourcePanel .caption-file-action,
+    body.judge-active #sourcePanel #captionFileStatus,
+    body.judge-active #sourcePanel #clearCaptionsBtn,
+    body.judge-active #sourceIntelligence,
     body.judge-active #sourcePanel .tr-in,
     body.judge-active #sourcePanel label[for="transcriptIn"],
     body.judge-active #sourcePanel .tr,
@@ -1154,15 +1185,18 @@
     <strong id="judgeStep">One source.</strong>
     <button type="button" id="judgeResetBtn">Reset demo</button>
   </div>
-  <div class="demo-banner"><strong>Demo Data</strong> gives Creator Memory a clearly labeled cold start. Your recorded results stay in this browser for now. Source analysis can use a real file + transcript, or Load Demo Source.</div>
+  <div class="demo-banner"><strong>Demo Data</strong> gives Creator Memory a clearly labeled cold start. Your recorded results stay in this browser for now. Source analysis can combine a real video with SRT/VTT/timestamped notes, or run visual-only.</div>
   <p class="stage" id="stageBig">One source.</p>
   <div class="lab">
     <section class="panel" id="sourcePanel">
       <h2>Source</h2>
       <div class="src-actions">
         <label>Choose video<input id="file" type="file" accept="video/*" /></label>
+        <label class="caption-file-action">+ Add captions<input id="captionFile" type="file" accept=".srt,.vtt,.txt,text/plain,text/vtt,application/x-subrip" /></label>
         <button type="button" id="demoBtn">Reset to Demo Source</button>
+        <button type="button" id="clearCaptionsBtn" hidden>Clear captions</button>
       </div>
+      <span id="captionFileStatus" class="mode">No captions loaded</span>
       <div class="preview" id="poster"><div class="monitor"><span></span><em></em><em></em></div></div>
       <video id="vid" class="source-vid" controls playsinline></video>
       <p class="source-line" id="srcMeta">Weather App Build · 04:12 · coding session</p>
@@ -1182,10 +1216,19 @@
       <textarea class="tr-in" id="transcriptIn" placeholder="Paste timestamped source notes here…"></textarea>
       <div class="analysis-actions">
         <button type="button" id="autoScoutBtn">✦ Auto Scout video</button>
-        <button type="button" id="analyzeBtn" class="analyze-primary">Analyze this source</button>
+        <button type="button" id="analyzeBtn" class="analyze-primary">Build source intelligence</button>
         <button type="button" id="retryBtn" hidden>Retry analysis</button>
       </div>
       <p class="mode" id="autoScoutHint">Local Visual Scout · frame-change heuristics · no semantic video model.</p>
+      <div class="source-intelligence" id="sourceIntelligence">
+        <div class="kicker">SOURCE INTELLIGENCE</div>
+        <div class="source-intelligence-stats">
+          <span id="siVisual">VISUAL · —</span>
+          <span id="siTranscript">TRANSCRIPT · —</span>
+          <span id="siCombined">COMBINED · —</span>
+        </div>
+        <p id="siMode" class="mode">No speech-to-text was performed.</p>
+      </div>
       <p class="proc" id="proc"></p>
       <p class="err" id="err"></p>
       <div class="timeline" id="timeline"></div>
@@ -1460,6 +1503,15 @@
     let stageChallengeSnapshot = null;
     let transcriptOrigin = "demo";
     let sourceReady = true;
+    let captionImport = null;
+    let importedTranscriptSnapshot = "";
+    let sourceIntelligenceStats = {
+      sampledFrames: 0,
+      visualCheckpoints: 0,
+      transcriptLines: 0,
+      moments: 0,
+      mode: "idle"
+    };
     function activeUserMemory() {
       return judgeMode ? judgeDemoMemory : userMemory;
     }
@@ -1522,7 +1574,7 @@
         <div class="panel" style="grid-column: 1 / -1; min-height: 180px; display: grid; place-items: center; text-align: center;">
           <div>
             <div class="kicker">NEW SOURCE LOADED</div>
-            <p class="hook" style="max-width: 540px; margin-left: auto; margin-right: auto;">Add timestamped transcript or source notes, then analyze.</p>
+            <p class="hook" style="max-width: 540px; margin-left: auto; margin-right: auto;">Add captions for transcript grounding, or analyze the video visually.</p>
             <p class="meta">Previous source experiments were cleared so they cannot be mistaken for this video.</p>
           </div>
         </div>
@@ -1536,6 +1588,8 @@
         transcriptOrigin = "empty";
       } else if (value === demoTranscriptText().trim()) {
         transcriptOrigin = "demo";
+      } else if (importedTranscriptSnapshot && value === String(importedTranscriptSnapshot).trim()) {
+        transcriptOrigin = "caption_file";
       } else {
         transcriptOrigin = "user";
       }
@@ -1545,8 +1599,6 @@
         const hasVideo = !!document.getElementById("vid").src;
         if (judgeMode) {
           analyze.disabled = true;
-        } else if (hasVideo && !sourceReady) {
-          analyze.disabled = lines.length === 0;
         } else {
           analyze.disabled = false;
         }
@@ -2829,7 +2881,7 @@
         return `<div class="mtick ${cls}" data-id="${esc(m.id)}" style="left:${left}%" title="${esc(m.type)}"></div>`;
       }).join("");
       document.getElementById("moments").innerHTML = (sourceDoc.moments || []).map(m =>
-        `<button type="button" data-id="${esc(m.id)}"><b>${fmt(m.start)}</b> · ${esc(m.type)} · ${esc(m.description)}</button>`).join("");
+        `<button type="button" data-id="${esc(m.id)}"><b>${fmt(m.start)}</b> · ${esc(m.provenance || m.type)} · ${esc(m.description)}${m.evidenceVisual || m.evidenceTranscript ? `<span class="meta" style="display:block">${esc([m.evidenceVisual ? ("Visual: " + m.evidenceVisual) : "", m.evidenceTranscript ? ("Transcript: “" + m.evidenceTranscript + "”") : ""].filter(Boolean).join(" · "))}</span>` : ""}</button>`).join("");
       document.getElementById("tr").innerHTML = (sourceDoc.transcript || []).map((s, i) =>
         `<button type="button" data-i="${i}"><b>${fmt(s.t)}</b> ${esc(s.text)}</button>`).join("");
       document.querySelectorAll("#timeline .mtick, #moments button").forEach(el => {
@@ -3195,6 +3247,197 @@
         return { ...parsed, ...metadata };
       }).filter(Boolean);
     }
+    function captionTimeToSeconds(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return null;
+      const normalized = raw.replace(",", ".");
+      const parts = normalized.split(":");
+      if (parts.length < 2 || parts.length > 3) return null;
+      const nums = parts.map(Number);
+      if (nums.some(n => !Number.isFinite(n) || n < 0)) return null;
+      let seconds = 0;
+      if (parts.length === 2) seconds = nums[0] * 60 + nums[1];
+      else seconds = nums[0] * 3600 + nums[1] * 60 + nums[2];
+      if (!Number.isFinite(seconds) || seconds < 0) return null;
+      return seconds;
+    }
+    function stripCaptionMarkup(text) {
+      return String(text || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    }
+    function normalizeCaptionLines(lines) {
+      const seen = new Set();
+      return (lines || []).filter(line => {
+        const t = Number(line?.t);
+        const text = String(line?.text || "").trim();
+        if (!Number.isFinite(t) || t < 0 || !text) return false;
+        const key = t + "|" + text.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).sort((a, b) => a.t - b.t);
+    }
+    function parseSrtCaptions(text) {
+      const blocks = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n\s*\r?\n/);
+      const lines = [];
+      blocks.forEach(block => {
+        const rows = block.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+        if (!rows.length) return;
+        let timingIndex = rows.findIndex(row => /-->/.test(row));
+        if (timingIndex < 0) return;
+        const startToken = rows[timingIndex].split(/-->/)[0].trim().split(/\s+/)[0];
+        const t = captionTimeToSeconds(startToken);
+        const cueText = stripCaptionMarkup(rows.slice(timingIndex + 1).join(" "));
+        if (t == null || !cueText) return;
+        lines.push({ t, text: cueText, sourceOrigin: "caption_file" });
+      });
+      return normalizeCaptionLines(lines);
+    }
+    function parseVttCaptions(text) {
+      const raw = String(text || "").replace(/^\uFEFF/, "");
+      const blocks = raw.split(/\r?\n\s*\r?\n/);
+      const lines = [];
+      blocks.forEach(block => {
+        const rows = block.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+        if (!rows.length) return;
+        const head = rows[0].toUpperCase();
+        if (head === "WEBVTT" || head.startsWith("NOTE") || head.startsWith("STYLE") || head.startsWith("REGION")) return;
+        let timingIndex = rows.findIndex(row => /-->/.test(row));
+        if (timingIndex < 0) return;
+        const startToken = rows[timingIndex].split(/-->/)[0].trim().split(/\s+/)[0];
+        const t = captionTimeToSeconds(startToken);
+        const cueText = stripCaptionMarkup(rows.slice(timingIndex + 1).join(" "));
+        if (t == null || !cueText) return;
+        lines.push({ t, text: cueText, sourceOrigin: "caption_file" });
+      });
+      return normalizeCaptionLines(lines);
+    }
+    function parseTimestampedTextFile(text) {
+      const lines = [];
+      String(text || "").split(/\r?\n/).forEach(row => {
+        const trimmed = row.trim();
+        if (!trimmed) return;
+        const match = trimmed.match(/^\[?((?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?)\]?\s*[-–—:]?\s*(.+)$/);
+        if (!match) return;
+        const t = captionTimeToSeconds(match[1]);
+        const cueText = stripCaptionMarkup(match[2]);
+        if (t == null || !cueText) return;
+        lines.push({ t, text: cueText, sourceOrigin: "caption_file" });
+      });
+      return normalizeCaptionLines(lines);
+    }
+    async function readCaptionFile(file) {
+      if (!file) throw new Error("No caption file selected.");
+      const fileName = String(file.name || "captions");
+      const ext = fileName.split(".").pop().toLowerCase();
+      const mime = String(file.type || "").toLowerCase();
+      let format = null;
+      if (ext === "srt" || mime.includes("subrip")) format = "srt";
+      else if (ext === "vtt" || mime.includes("vtt")) format = "vtt";
+      else if (ext === "txt" || mime.includes("text/plain")) format = "txt";
+      if (!format) throw new Error("Unsupported caption format. Use SRT, VTT, or timestamped TXT.");
+      const text = await file.text();
+      if (!String(text || "").trim()) throw new Error("That caption file is empty.");
+      let lines = [];
+      if (format === "srt") lines = parseSrtCaptions(text);
+      else if (format === "vtt") lines = parseVttCaptions(text);
+      else lines = parseTimestampedTextFile(text);
+      if (!lines.length) {
+        if (format === "txt") throw new Error("This TXT file has no timestamps. Use SRT/VTT or add timestamps such as 00:12 before each source note.");
+        throw new Error("No valid caption cues were found.");
+      }
+      return { fileName, format, lines };
+    }
+    function resetSourceIntelligence(mode = "idle") {
+      sourceIntelligenceStats = {
+        sampledFrames: 0,
+        visualCheckpoints: 0,
+        transcriptLines: 0,
+        moments: 0,
+        mode
+      };
+      renderSourceIntelligence();
+    }
+    function humanSourceLines(lines) {
+      return (lines || []).filter(line => {
+        const text = String(line?.text || "").trim();
+        if (!text) return false;
+        if (line?.scoutGenerated) return false;
+        if (isInternalCreatorLabText(text)) return false;
+        return true;
+      });
+    }
+    function renderSourceIntelligence() {
+      const visual = document.getElementById("siVisual");
+      const transcript = document.getElementById("siTranscript");
+      const combined = document.getElementById("siCombined");
+      const modeEl = document.getElementById("siMode");
+      if (!visual || !transcript || !combined || !modeEl) return;
+      const stats = sourceIntelligenceStats || {};
+      const video = document.getElementById("vid");
+      const hasVideo = !!video?.src && Number.isFinite(video.duration) && video.duration > 0;
+      const cueCount = captionImport?.lines?.length || parseTranscript(document.getElementById("transcriptIn")?.value || "").length;
+      if (stats.mode === "idle") {
+        visual.textContent = hasVideo ? "VISUAL · READY" : "VISUAL · —";
+        transcript.textContent = cueCount ? ("TRANSCRIPT · " + cueCount + " CUES") : "TRANSCRIPT · —";
+        combined.textContent = (hasVideo || cueCount) ? "COMBINED · READY" : "COMBINED · —";
+        modeEl.textContent = "No speech-to-text was performed.";
+        return;
+      }
+      if (stats.sampledFrames) visual.textContent = "VISUAL · " + stats.sampledFrames + " FRAMES";
+      else if (stats.mode === "transcript") visual.textContent = "VISUAL · NONE";
+      else visual.textContent = hasVideo ? "VISUAL · READY" : "VISUAL · NONE";
+      if (stats.transcriptLines) transcript.textContent = "TRANSCRIPT · " + stats.transcriptLines + " CUES";
+      else transcript.textContent = "TRANSCRIPT · NONE";
+      if (stats.mode === "visual+transcript") combined.textContent = "COMBINED · " + (stats.moments || 0) + " MOMENTS";
+      else if (stats.mode === "visual") combined.textContent = "COMBINED · VISUAL ONLY";
+      else if (stats.mode === "transcript") combined.textContent = "COMBINED · TRANSCRIPT ONLY";
+      else combined.textContent = "COMBINED · " + (stats.moments || 0) + " MOMENTS";
+      if (stats.mode === "visual") modeEl.textContent = "VISUAL ONLY. Local frame-change heuristics. No speech-to-text or semantic video model.";
+      else if (stats.mode === "transcript") modeEl.textContent = "TRANSCRIPT ONLY. Caption timestamps parsed locally. No speech-to-text was performed.";
+      else if (stats.mode === "visual+transcript") modeEl.textContent = "Caption timestamps parsed locally. Video frames are sampled locally. No speech-to-text was performed.";
+      else modeEl.textContent = "No speech-to-text was performed.";
+    }
+    function updateCaptionStatus() {
+      const status = document.getElementById("captionFileStatus");
+      const clearBtn = document.getElementById("clearCaptionsBtn");
+      if (status) {
+        if (captionImport && captionImport.lines) {
+          const count = captionImport.lines.length;
+          const unit = captionImport.format === "txt" ? "timestamped lines" : "cues";
+          status.textContent = captionImport.fileName + " · " + count + " " + unit;
+        } else status.textContent = "No captions loaded";
+      }
+      if (clearBtn) clearBtn.hidden = !(captionImport || importedTranscriptSnapshot);
+      renderSourceIntelligence();
+    }
+    function annotateMomentProvenance(moments, lines) {
+      const human = humanSourceLines(lines);
+      const scout = (lines || []).filter(line => line?.scoutGenerated || isInternalCreatorLabText(line?.text));
+      return (moments || []).map(moment => {
+        const start = Number(moment.start);
+        const nearHuman = human.find(line => Math.abs(Number(line.t) - start) <= 14);
+        const nearScout = scout.find(line => Math.abs(Number(line.t) - start) <= 14);
+        let provenance = "TRANSCRIPT";
+        let visualLine = "";
+        let transcriptLine = nearHuman ? String(nearHuman.text) : "";
+        if (nearHuman && nearScout) {
+          provenance = "VISUAL + TRANSCRIPT";
+          visualLine = String(nearScout.text || "Visual: appearance shift detected.").replace(/^Auto Scout:\s*/i, "");
+        } else if (!nearHuman && nearScout) {
+          provenance = "VISUAL HEURISTIC";
+          visualLine = String(nearScout.text || "Visual: appearance shift detected.").replace(/^Auto Scout:\s*/i, "");
+          transcriptLine = "";
+        } else if (!nearHuman && !nearScout && moment.scoutGenerated) {
+          provenance = "VISUAL HEURISTIC";
+        }
+        return {
+          ...moment,
+          provenance,
+          evidenceVisual: visualLine,
+          evidenceTranscript: transcriptLine
+        };
+      });
+    }
 
     function classifyLocalMoment(text) {
       const t = String(text || "").toLowerCase();
@@ -3317,15 +3560,19 @@
         const doc = await analyzeSource(title, duration, lines);
         proc.textContent = "Building creative experiments...";
         doc.transcript = lines;
+        doc.moments = annotateMomentProvenance(doc.moments || [], lines);
         doc.duration = duration || doc.duration || 0;
         doc.title = title || doc.title || "Untitled source";
         doc.id = sourceFingerprint(doc);
-        if (modeLabel && doc.analysisMode && doc.analysisMode.indexOf("SkyCastle") === -1) {
+        sourceIntelligenceStats.moments = (doc.moments || []).length;
+        sourceIntelligenceStats.transcriptLines = humanSourceLines(lines).length || sourceIntelligenceStats.transcriptLines;
+        if (modeLabel && doc.analysisMode && doc.analysisMode.indexOf(modeLabel) === -1) {
           doc.analysisMode = modeLabel + " · " + doc.analysisMode;
         }
         sourceDoc = doc;
         setSourceReady(true);
         renderSourcePanel();
+        renderSourceIntelligence();
         renderExps(applied, true);
         proc.textContent = "Ready — experiments use this source.";
         setStage("Three experiments from this source.");
@@ -3549,10 +3796,17 @@
         const generated = autoScoutNotes(samples, duration);
         rememberScoutMetadata(generated);
         const existing = parseTranscript(input.value);
-        const merged = mergeSourceNotes(existing, generated);
+        const merged = mergeSourceNotes(humanSourceLines(existing), generated);
         input.value = formatSourceNotes(merged);
-        transcriptOrigin = "user";
         updateTranscriptState();
+        sourceIntelligenceStats = {
+          sampledFrames: samples.length,
+          visualCheckpoints: generated.length,
+          transcriptLines: humanSourceLines(merged).length,
+          moments: 0,
+          mode: humanSourceLines(merged).length ? "visual+transcript" : "visual"
+        };
+        renderSourceIntelligence();
         proc.textContent = "Auto Scout found " + generated.length + " visual checkpoints. Building experiments…";
         await runAnalysis("Local Visual Scout · frame-change heuristics · no semantic video model", merged, title, duration);
         const hint = document.getElementById("autoScoutHint");
@@ -3576,6 +3830,9 @@
     function loadDemo() {
       scoutMetadata = new Map();
       stageThumbnailCache = new Map();
+      captionImport = null;
+      importedTranscriptSnapshot = "";
+      resetSourceIntelligence("idle");
       hideTestBrief();
       DEMO_SOURCE.id = sourceFingerprint(DEMO_SOURCE);
       sourceDoc = DEMO_SOURCE;
@@ -3593,6 +3850,7 @@
       renderCreatorMemory();
       populateMemoryExperimentSelect();
       updateTranscriptState();
+      updateCaptionStatus();
       syncAutoScoutButton();
       setStage("One source.");
     }
@@ -3602,6 +3860,9 @@
       if (!f) return;
       scoutMetadata = new Map();
       stageThumbnailCache = new Map();
+      captionImport = null;
+      importedTranscriptSnapshot = "";
+      resetSourceIntelligence("idle");
       document.getElementById("srcMeta").textContent = f.name + " · loading duration…";
       if (videoUrl) URL.revokeObjectURL(videoUrl);
       videoUrl = URL.createObjectURL(f);
@@ -3622,7 +3883,8 @@
       document.getElementById("memoryDelta").textContent = "";
       document.getElementById("proc").textContent = "";
       document.getElementById("err").textContent = "";
-      document.getElementById("analysisMode").textContent = "Video loaded — add timestamped transcript or source notes, then Analyze. No silent auto-watch.";
+      document.getElementById("analysisMode").textContent = "Video loaded — add captions for transcript grounding, or analyze the video visually. No silent auto-watch.";
+      updateCaptionStatus();
       syncAutoScoutButton();
       v.onloadedmetadata = () => {
         document.getElementById("srcMeta").textContent = f.name + " · " + fmt(v.duration);
@@ -3632,32 +3894,125 @@
       setStage("New source loaded. Waiting for source notes.");
     });
 
-    document.getElementById("demoBtn").addEventListener("click", loadDemo);
-    document.getElementById("analyzeBtn").addEventListener("click", () => {
+    function mismatchCaptionError(line, duration) {
+      return "Caption timestamp " + fmt(line.t) + " is outside this " + fmt(duration) + " video. Check that the captions belong to this source.";
+    }
+    async function importCaptionFile(file) {
+      const err = document.getElementById("err");
+      err.textContent = "";
+      try {
+        const parsed = await readCaptionFile(file);
+        captionImport = parsed;
+        const formatted = formatSourceNotes(parsed.lines);
+        document.getElementById("transcriptIn").value = formatted;
+        importedTranscriptSnapshot = formatted.trim();
+        transcriptOrigin = "caption_file";
+        updateTranscriptState();
+        updateCaptionStatus();
+        const video = document.getElementById("vid");
+        if (video && Number.isFinite(video.duration) && video.duration > 0) {
+          const outside = parsed.lines.find(line => line.t > video.duration + 1);
+          if (outside) err.textContent = mismatchCaptionError(outside, video.duration);
+        }
+      } catch (error) {
+        captionImport = null;
+        importedTranscriptSnapshot = "";
+        err.textContent = error.message || "Could not read that caption file.";
+        updateCaptionStatus();
+      }
+    }
+    function clearCaptions() {
+      const input = document.getElementById("transcriptIn");
+      const current = String(input.value || "").trim();
+      const snapshot = String(importedTranscriptSnapshot || "").trim();
+      captionImport = null;
+      importedTranscriptSnapshot = "";
+      if (snapshot && current === snapshot) {
+        input.value = "";
+        transcriptOrigin = "empty";
+      }
+      updateTranscriptState();
+      updateCaptionStatus();
+    }
+    async function buildSourceIntelligence() {
       const v = document.getElementById("vid");
+      const err = document.getElementById("err");
+      const proc = document.getElementById("proc");
+      const input = document.getElementById("transcriptIn");
+      err.textContent = "";
       if (v.src && transcriptOrigin === "demo") {
-        document.getElementById("err").textContent = "This transcript belongs to the built-in Demo Source. Replace it with timestamped notes for the selected video before analyzing.";
+        err.textContent = "This transcript belongs to the built-in Demo Source. Replace it with timestamped notes for the selected video before analyzing.";
         return;
       }
-      const lines = parseTranscript(document.getElementById("transcriptIn").value);
-      if (!lines.length) {
-        document.getElementById("err").textContent = "Paste a timestamped transcript (mm:ss line) so analysis isn’t faked from the picture alone.";
-        return;
-      }
-      if (v.duration && isFinite(v.duration)) {
-        const outside = lines.find(line => line.t > v.duration + 1);
+      const hasVideo = !!v.src && Number.isFinite(v.duration) && v.duration > 0;
+      const lines = parseTranscript(input.value);
+      const human = humanSourceLines(lines);
+      if (hasVideo && human.length) {
+        const outside = human.find(line => line.t > v.duration + 1);
         if (outside) {
-          document.getElementById("err").textContent = "A timestamp (" + fmt(outside.t) + ") is outside this " + fmt(v.duration) + " video. Fix the source notes before analyzing.";
+          err.textContent = mismatchCaptionError(outside, v.duration);
           return;
         }
+        const file = document.getElementById("file").files[0];
+        const title = file ? file.name : "Uploaded source";
+        const duration = v.duration;
+        const originalTime = v.currentTime;
+        try {
+          v.pause();
+          const samples = await scanVideoLocally(v, (current, total) => {
+            proc.textContent = "Source Intelligence: " + current + "/" + total + " frames sampled…";
+          });
+          const generated = autoScoutNotes(samples, duration);
+          rememberScoutMetadata(generated);
+          const merged = mergeSourceNotes(human, generated);
+          input.value = formatSourceNotes(merged);
+          updateTranscriptState();
+          sourceIntelligenceStats = {
+            sampledFrames: samples.length,
+            visualCheckpoints: generated.length,
+            transcriptLines: human.length,
+            moments: 0,
+            mode: "visual+transcript"
+          };
+          renderSourceIntelligence();
+          await runAnalysis("Source Intelligence · visual + transcript", merged, title, duration);
+        } catch (error) {
+          err.textContent = error.message || "Source Intelligence could not combine this video and transcript.";
+        } finally {
+          try { await seekVideoFrame(v, originalTime); } catch {}
+        }
+        return;
+      }
+      if (hasVideo && !human.length) {
+        await runAutoScout();
+        sourceIntelligenceStats.mode = sourceIntelligenceStats.mode || "visual";
+        renderSourceIntelligence();
+        return;
+      }
+      if (!human.length) {
+        err.textContent = "Add captions for transcript grounding, or choose a video to analyze visually.";
+        return;
       }
       const title = (document.getElementById("file").files[0] && document.getElementById("file").files[0].name) || "Uploaded source";
-      const dur = (v.duration && isFinite(v.duration)) ? v.duration : (lines[lines.length - 1].t + 20);
-      const mode = v.src
-        ? "Timestamped source notes you provided · video preview is local · audio was not auto-transcribed"
-        : "Timestamped transcript / source notes";
-      runAnalysis(mode, lines, title, dur);
+      const dur = (v.duration && isFinite(v.duration)) ? v.duration : (human[human.length - 1].t + 20);
+      sourceIntelligenceStats = {
+        sampledFrames: 0,
+        visualCheckpoints: 0,
+        transcriptLines: human.length,
+        moments: 0,
+        mode: "transcript"
+      };
+      renderSourceIntelligence();
+      await runAnalysis("Source Intelligence · transcript only", human, title, dur);
+    }
+    document.getElementById("demoBtn").addEventListener("click", loadDemo);
+    document.getElementById("analyzeBtn").addEventListener("click", () => { buildSourceIntelligence(); });
+    document.getElementById("captionFile").addEventListener("change", e => {
+      const file = e.target.files && e.target.files[0];
+      if (file) importCaptionFile(file);
+      e.target.value = "";
     });
+    document.getElementById("clearCaptionsBtn").addEventListener("click", clearCaptions);
     document.getElementById("transcriptIn").addEventListener("input", updateTranscriptState);
     const testBriefEl = document.getElementById("testBrief");
     if (testBriefEl) {
