@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmue5yr9qpro1zyes -->
+<!-- aha-build-id: bmufetr4plih6mji0 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -369,11 +369,31 @@
     .stage-loop[data-step="theory"] b[data-loop-step="theory"] { color: #e8a35a; }
     .stage-loop[data-step="test"] b[data-loop-step="test"] { color: #b9d6ef; }
     .stage-loop[data-step="learn"] b[data-loop-step="learn"] { color: #fff7ec; }
+    .stage-contract-lock {
+      margin-top: 2px;
+      color: #b9d6ef;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: .12em;
+      opacity: .82;
+    }
+    .stage-test-variable {
+      margin: -2px 0 6px;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 8px;
+      letter-spacing: .08em;
+    }
+    .stage-test-variable strong {
+      color: #b9d6ef;
+      font-weight: 600;
+    }
     .stage-theory-contract {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0;
-      margin: 6px 0 8px;
+      margin: 4px 0 6px;
       border-top: 1px solid rgba(255,247,236,.08);
       border-bottom: 1px solid rgba(255,247,236,.08);
     }
@@ -4658,7 +4678,7 @@
         <div class="stage-challenge-controls">
           <div class="stage-challenge-copy">
             <span>TRY THE FALSIFICATION TEST</span>
-            <strong>Same source. Same controls. Change only the evidence.</strong>
+            <strong>Same controls. Test the locked threshold.</strong>
           </div>
           <div class="stage-challenge-actions">
             <button type="button" data-stage-result="${belowValue}">${belowValue.toFixed(1)} · BELOW REQUIRED</button>
@@ -4674,13 +4694,15 @@
         : "—";
       el.innerHTML = `
         <div class="stage-question-kicker">THEORY CONTRACT · FALSIFICATION TEST</div>
+        <div class="stage-contract-lock">LOCKED BEFORE THE RESULT</div>
         <h2>WHAT WOULD CHANGE MY MIND?</h2>
         <div class="stage-theory-contract">
           <div class="stage-contract-cell"><span>CURRENT THEORY</span><strong>${esc(theoryName)}</strong></div>
           <div class="stage-contract-cell"><span>CHALLENGER</span><strong>${esc(challengerName)}</strong></div>
-          <div class="stage-contract-cell"><span>REQUIRED EVIDENCE</span><strong>${esc(evidenceLabel)}</strong></div>
-          <div class="stage-contract-cell"><span>KEEP CONSTANT</span><strong>source · audience · goal · platform</strong></div>
+          <div class="stage-contract-cell"><span>REQUIRED EVIDENCE · LOCKED</span><strong>${esc(evidenceLabel)}</strong></div>
+          <div class="stage-contract-cell"><span>CONTROLLED VARIABLES</span><strong>source · audience · goal · platform</strong></div>
         </div>
+        <div class="stage-test-variable">TEST VARIABLE · <strong>OPENING STRATEGY</strong></div>
         <div class="stage-meter-row">
           <strong>${esc(leftLabel)}</strong>
           <div class="stage-meter"><span class="fill" style="width:${tPct}%"></span><span class="dot" style="left:${tPct}%"></span><span class="stage-required-label" style="left:${tPct}%;">REQUIRED</span>${resultDot}</div>
