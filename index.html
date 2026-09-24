@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmufetr4plih6mji0 -->
+<!-- aha-build-id: bmufj3fivhqwug6z7 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -370,20 +370,53 @@
     .stage-loop[data-step="test"] b[data-loop-step="test"] { color: #b9d6ef; }
     .stage-loop[data-step="learn"] b[data-loop-step="learn"] { color: #fff7ec; }
     .stage-contract-lock {
-      margin-top: 2px;
+      margin-top: 1px;
       color: #b9d6ef;
       font-family: "IBM Plex Mono", monospace;
-      font-size: 8px;
+      font-size: 9px;
       font-weight: 600;
       letter-spacing: .12em;
       opacity: .82;
     }
+    .stage-contract-explainer {
+      margin: 1px 0 2px;
+      color: var(--muted);
+      font-family: "IBM Plex Sans", "IBM Plex Mono", sans-serif;
+      font-size: 10px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .stage-test-variable {
-      margin: -2px 0 6px;
+      margin: -2px 0 4px;
       color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
-      font-size: 8px;
+      font-size: 9px;
       letter-spacing: .08em;
+    }
+    .stage-source-proof {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 4px 0 6px;
+      padding: 4px 8px;
+      border: 1px solid rgba(143,180,217,.22);
+      border-radius: 8px;
+      background: rgba(143,180,217,.06);
+    }
+    .stage-source-proof span {
+      flex: 0 0 auto;
+      color: #b9d6ef;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: .10em;
+    }
+    .stage-source-proof strong {
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 500;
     }
     .stage-test-variable strong {
       color: #b9d6ef;
@@ -393,7 +426,7 @@
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0;
-      margin: 4px 0 6px;
+      margin: 3px 0 4px;
       border-top: 1px solid rgba(255,247,236,.08);
       border-bottom: 1px solid rgba(255,247,236,.08);
     }
@@ -407,7 +440,7 @@
       display: block;
       color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
-      font-size: 7px;
+      font-size: 8px;
       font-weight: 600;
       letter-spacing: .08em;
     }
@@ -458,7 +491,7 @@
       display: block;
       color: #b9d6ef;
       font-family: "IBM Plex Mono", monospace;
-      font-size: 8px;
+      font-size: 9px;
       font-weight: 600;
       letter-spacing: .10em;
     }
@@ -483,7 +516,7 @@
       color: var(--muted);
       cursor: pointer;
       font-family: "IBM Plex Mono", monospace;
-      font-size: 8px;
+      font-size: 9px;
       letter-spacing: .05em;
     }
     .stage-challenge-actions button.cross {
@@ -581,7 +614,7 @@
       border: 1px solid rgba(255,247,236,0.08);
       background: rgba(0,0,0,0.18);
     }
-    .stage-card.next { border-color: rgba(143, 180, 217, 0.72); box-shadow: 0 0 0 1px rgba(143, 180, 217, 0.12); }
+    .stage-card.next { border-color: rgba(143, 180, 217, 0.72); box-shadow: 0 0 0 1px rgba(143, 180, 217, 0.12); background: rgba(143, 180, 217, 0.06); }
     .stage-card.theory { border-color: rgba(232, 163, 90, 0.72); box-shadow: 0 0 0 1px rgba(232, 163, 90, 0.08); }
     .stage-card.next.pulse { animation: stagePulse 900ms ease infinite; }
     .stage-badge {
@@ -4555,10 +4588,20 @@
         : imported
           ? `<div class="stage-poster">IMPORTED ANALYSIS</div>`
           : `<div class="stage-poster">DEMO SOURCE</div>`;
+      const stats = sourceIntelligenceStats || {};
+      const proofParts = [];
+      if (Number(stats.sampledFrames) > 0) proofParts.push(stats.sampledFrames + " FRAMES");
+      if (Number(stats.transcriptLines) > 0) proofParts.push(stats.transcriptLines + " CUES");
+      if (Number(stats.moments) > 0) proofParts.push(stats.moments + " GROUNDED MOMENTS");
+      const showProof = live && stats.mode && stats.mode !== "idle" && proofParts.length;
+      const proofHtml = showProof
+        ? `<div class="stage-source-proof"><span>REAL SOURCE RUN</span><strong>${esc(proofParts.join(" · "))}</strong></div>`
+        : "";
       el.innerHTML = `
         <div class="stage-section-label">${esc(live ? "LIVE SOURCE" : imported ? "IMPORTED SOURCE" : "DEMO SOURCE")}</div>
         <div class="stage-thesis" style="font-size:22px;margin:0 0 8px">${esc(sourceDoc.title || "Source")}</div>
         <p class="mode">${esc(sourceDoc.analysisMode || "")}</p>
+        ${proofHtml}
         <div class="stage-source-visual">${preview}<div class="stage-scan-line" aria-hidden="true"></div></div>
         <div class="stage-real-timeline"><div class="stage-timeline-track"></div>${timelineHtml}</div>
         <p class="mode" style="margin-top:8px">${esc((moments[0] && (moments[0].description || moments[0].label || moments[0].text)) || "Source map")}</p>
@@ -4678,7 +4721,7 @@
         <div class="stage-challenge-controls">
           <div class="stage-challenge-copy">
             <span>TRY THE FALSIFICATION TEST</span>
-            <strong>Same controls. Test the locked threshold.</strong>
+            <strong>Same controlled variables. Can the evidence beat the locked threshold?</strong>
           </div>
           <div class="stage-challenge-actions">
             <button type="button" data-stage-result="${belowValue}">${belowValue.toFixed(1)} · BELOW REQUIRED</button>
@@ -4694,7 +4737,8 @@
         : "—";
       el.innerHTML = `
         <div class="stage-question-kicker">THEORY CONTRACT · FALSIFICATION TEST</div>
-        <div class="stage-contract-lock">LOCKED BEFORE THE RESULT</div>
+        <div class="stage-contract-lock">RULE LOCKED BEFORE THE RESULT ARRIVES</div>
+        <p class="stage-contract-explainer">The agent commits to this rule before it sees the evidence.</p>
         <h2>WHAT WOULD CHANGE MY MIND?</h2>
         <div class="stage-theory-contract">
           <div class="stage-contract-cell"><span>CURRENT THEORY</span><strong>${esc(theoryName)}</strong></div>
@@ -4702,7 +4746,7 @@
           <div class="stage-contract-cell"><span>REQUIRED EVIDENCE · LOCKED</span><strong>${esc(evidenceLabel)}</strong></div>
           <div class="stage-contract-cell"><span>CONTROLLED VARIABLES</span><strong>source · audience · goal · platform</strong></div>
         </div>
-        <div class="stage-test-variable">TEST VARIABLE · <strong>OPENING STRATEGY</strong></div>
+        <div class="stage-test-variable">ONLY THING WE CHANGE · <strong>OPENING STRATEGY</strong></div>
         <div class="stage-meter-row">
           <strong>${esc(leftLabel)}</strong>
           <div class="stage-meter"><span class="fill" style="width:${tPct}%"></span><span class="dot" style="left:${tPct}%"></span><span class="stage-required-label" style="left:${tPct}%;">REQUIRED</span>${resultDot}</div>
@@ -4892,7 +4936,7 @@
       const challengeBtn = document.getElementById("stageChallengeBtn");
       if (challengeBtn) challengeBtn.hidden = true;
       setStageLoopStep("theory");
-      renderExperimentStage({ thesis: "AN AGENT THAT CAN BE PROVEN WRONG." });
+      renderExperimentStage({ thesis: "THIS AI TELLS YOU HOW TO PROVE IT WRONG." });
     }
     function closeExperimentStage() {
       stageReplayRunId += 1;
@@ -4945,11 +4989,11 @@
       renderExps(applied, false);
       stageOpeningPhase = "source";
       setStageLoopStep("theory");
-      renderExperimentStage({ timelineLit: false, openingPhase: "source", thesis: "AN AGENT THAT CAN BE PROVEN WRONG.", toast: "" });
+      renderExperimentStage({ timelineLit: false, openingPhase: "source", thesis: "THIS AI TELLS YOU HOW TO PROVE IT WRONG.", toast: "" });
       stageLater(runId, 700, () => {
         stageOpeningPhase = "scan";
         setStageLoopStep("theory");
-        renderExperimentStage({ timelineLit: true, openingPhase: "scan", thesis: "IT TELLS YOU HOW." });
+        renderExperimentStage({ timelineLit: true, openingPhase: "scan", thesis: "IT COMMITS BEFORE IT SEES THE RESULT." });
       });
       stageLater(runId, 1500, () => {
         stageOpeningPhase = "extract";
@@ -5007,7 +5051,7 @@
           beforeName: stageReplayBeforeTheory,
           afterName,
           animateSwap: false,
-          thesis: "IT TOLD YOU WHAT WOULD CHANGE ITS MIND. THEN IT DID."
+          thesis: "THE EVIDENCE CHANGED THE AGENT."
         });
         stageReplayRunning = false;
         const challengeBtnShow = document.getElementById("stageChallengeBtn");
