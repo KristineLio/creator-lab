@@ -1,4 +1,4 @@
-<!-- aha-build-id: bmufj3fivhqwug6z7 -->
+<!-- aha-build-id: bmufk1lkg1wcufpn5 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4717,15 +4717,17 @@
       if (options.challengeMode === true && challenge.ready && challenge.possible) {
         const belowValue = Math.max(0, challenge.threshold - 5);
         const aboveValue = Math.min(100, challenge.threshold + 14);
+        const resultLocked = received != null;
+        const resultDisabled = resultLocked ? " disabled" : "";
         challengeControls = `
         <div class="stage-challenge-controls">
           <div class="stage-challenge-copy">
             <span>TRY THE FALSIFICATION TEST</span>
-            <strong>Same controlled variables. Can the evidence beat the locked threshold?</strong>
+            <strong>${resultLocked ? "RESET TO TRY ANOTHER RESULT" : "Same controlled variables. Can the evidence beat the locked threshold?"}</strong>
           </div>
           <div class="stage-challenge-actions">
-            <button type="button" data-stage-result="${belowValue}">${belowValue.toFixed(1)} · BELOW REQUIRED</button>
-            <button type="button" class="cross" data-stage-result="${aboveValue}">${aboveValue.toFixed(1)} · CROSS REQUIRED</button>
+            <button type="button" data-stage-result="${belowValue}"${resultDisabled}>${belowValue.toFixed(1)} · BELOW REQUIRED</button>
+            <button type="button" class="cross" data-stage-result="${aboveValue}"${resultDisabled}>${aboveValue.toFixed(1)} · CROSS REQUIRED</button>
             <button type="button" data-stage-challenge-reset>RESET</button>
           </div>
         </div>`;
@@ -4884,6 +4886,7 @@
       setStageLoopStep("test");
     }
     async function applyStageChallengeResult(value) {
+      if (stageThresholdResult != null) return;
       if (!stageChallengeMode) return;
 
       const challenge = stageChallengeSnapshot;
