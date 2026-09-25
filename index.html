@@ -1230,6 +1230,8 @@
       .pack-id { display: inline-block; margin-top: 8px; }
     }
   
+    body.judge-active #sourceShort { display:none !important; }
+
     /* Source → Short */
     .source-short {
       margin-top: 16px;
@@ -4284,6 +4286,7 @@
       }
     }
     function loadDemo() {
+      resetSourceToShort();
       scoutMetadata = new Map();
       stageThumbnailCache = new Map();
       captionImport = null;
