@@ -1229,6 +1229,53 @@
       .pack-header { display: block; }
       .pack-id { display: inline-block; margin-top: 8px; }
     }
+  
+    /* Source → Short */
+    .source-short {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid rgba(143,180,217,.26);
+      border-radius: 14px;
+      background: rgba(143,180,217,.035);
+    }
+    .source-short-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .source-short-head h2 { margin:2px 0 4px; }
+    .source-short-badge {
+      flex:0 0 auto; padding:4px 8px; border:1px solid rgba(143,180,217,.42); border-radius:999px;
+      color:#b9d6ef; font:9px "IBM Plex Mono", monospace; letter-spacing:.09em;
+    }
+    .source-short-grid { display:grid; grid-template-columns:112px minmax(0,1fr); gap:12px; margin-top:12px; align-items:start; }
+    .short-frame {
+      width:112px; aspect-ratio:9/16; overflow:hidden; border-radius:10px; border:1px solid var(--line);
+      background:#171411; display:grid; place-items:center; color:var(--muted); font-size:10px; text-align:center;
+    }
+    .short-frame canvas { width:100%; height:100%; object-fit:cover; display:block; }
+    .short-frame-empty { padding:10px; line-height:1.35; }
+    .short-selected { min-width:0; }
+    .short-selected strong { display:block; margin:3px 0 5px; font-family:"Instrument Serif", Georgia, serif; font-size:19px; font-weight:400; }
+    .short-actions { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+    .short-actions button, .short-result-actions button {
+      border:1px solid var(--line); background:#1c1916; color:var(--text); border-radius:999px;
+      padding:7px 10px; font:10px "IBM Plex Sans", sans-serif; cursor:pointer;
+    }
+    .short-actions .primary { border-color:#b9d6ef; color:#d8eafa; }
+    .short-results { display:grid; gap:9px; margin-top:12px; }
+    .short-result {
+      padding:11px; border:1px solid rgba(255,247,236,.10); border-radius:11px; background:rgba(255,247,236,.018);
+    }
+    .short-result-top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .short-result h3 { margin:3px 0 7px; font-family:"Instrument Serif", Georgia, serif; font-size:19px; font-weight:400; }
+    .short-result p { margin:5px 0; color:var(--muted); font-size:11px; line-height:1.48; }
+    .short-result p b { color:var(--text); font-weight:500; }
+    .short-result-kicker { color:#b9d6ef; font:8px "IBM Plex Mono", monospace; letter-spacing:.10em; }
+    .short-result-actions { margin-top:9px; display:flex; gap:6px; flex-wrap:wrap; }
+    .short-result-actions .primary { border-color:rgba(143,180,217,.62); color:#c7e0f5; }
+    .short-status { margin-top:8px; min-height:15px; }
+    @media (max-width:700px) {
+      .source-short-grid { grid-template-columns:86px minmax(0,1fr); }
+      .short-frame { width:86px; }
+    }
+
   </style>
 </head>
 <body>
@@ -1294,6 +1341,37 @@
       <p class="err" id="err"></p>
       <div class="timeline" id="timeline"></div>
       <div class="moments" id="moments"></div>
+      <section class="source-short" id="sourceShort">
+        <div class="source-short-head">
+          <div>
+            <div class="kicker">SOURCE → SHORT</div>
+            <h2>Turn one viral moment into an original short</h2>
+            <p class="mode">Select a grounded moment. Creator Lab packages the storytelling mechanism, transcript context, and a real reference frame for AI Studio.</p>
+          </div>
+          <span class="source-short-badge">8s · 9:16</span>
+        </div>
+        <div id="shortEmpty" class="mode">Select a detected moment above to begin.</div>
+        <div id="shortWorkspace" hidden>
+          <div class="source-short-grid">
+            <div class="short-frame" id="shortFrameWrap">
+              <div class="short-frame-empty" id="shortFrameEmpty">Upload a source video to capture its real frame.</div>
+              <canvas id="shortFrameCanvas" hidden></canvas>
+            </div>
+            <div class="short-selected">
+              <span class="short-result-kicker" id="shortMomentMeta"></span>
+              <strong id="shortMomentTitle"></strong>
+              <p class="mode" id="shortMechanism"></p>
+              <div class="short-actions">
+                <button type="button" id="captureShortFrameBtn">Capture reference frame</button>
+                <button type="button" id="downloadShortFrameBtn" disabled>Download frame</button>
+                <button type="button" id="generateShortBtn" class="primary">Generate short package</button>
+              </div>
+            </div>
+          </div>
+          <p class="mode short-status" id="shortStatus"></p>
+          <div class="short-results" id="shortResults"></div>
+        </div>
+      </section>
       <h2 style="margin-top:16px">Transcript</h2>
       <div class="tr" id="tr"></div>
     </section>
@@ -1457,6 +1535,7 @@
       analyzeUrl: window.CREATOR_LAB_ANALYZE_URL || "/api/analyze-source"
     };
     const ANALYZE_URL = CREATOR_LAB_CONFIG.analyzeUrl;
+    const SHORT_URL = window.CREATOR_LAB_SHORT_URL || "/api/generate-short";
 
     const DEMO_TRANSCRIPT = [
       { t: 8, text: "Okay, empty project. I’m just going to try to fetch weather." },
@@ -1566,6 +1645,9 @@
     let sourceReady = true;
     let captionImport = null;
     let importedTranscriptSnapshot = "";
+    let selectedShortMomentId = null;
+    let shortReferenceFrameDataUrl = null;
+    let shortGeneratedVariants = [];
     let sourceIntelligenceStats = {
       sampledFrames: 0,
       visualCheckpoints: 0,
@@ -1628,6 +1710,7 @@
         `;
         experimentSelect.disabled = true;
       }
+      resetSourceToShort();
     }
     function renderSourcePending() {
       const root = document.getElementById("exps");
@@ -2929,6 +3012,317 @@
       document.getElementById("stageBig").textContent = t;
     }
 
+
+    function resetSourceToShort() {
+      selectedShortMomentId = null;
+      shortReferenceFrameDataUrl = null;
+      shortGeneratedVariants = [];
+      const empty = document.getElementById("shortEmpty");
+      const workspace = document.getElementById("shortWorkspace");
+      const results = document.getElementById("shortResults");
+      const status = document.getElementById("shortStatus");
+      const canvas = document.getElementById("shortFrameCanvas");
+      const frameEmpty = document.getElementById("shortFrameEmpty");
+      const download = document.getElementById("downloadShortFrameBtn");
+      if (empty) empty.hidden = false;
+      if (workspace) workspace.hidden = true;
+      if (results) results.innerHTML = "";
+      if (status) status.textContent = "";
+      if (canvas) canvas.hidden = true;
+      if (frameEmpty) {
+        frameEmpty.hidden = false;
+        frameEmpty.textContent = "Upload a source video to capture its real frame.";
+      }
+      if (download) download.disabled = true;
+    }
+    function selectedShortMoment() {
+      return (sourceDoc.moments || []).find(function(moment) { return moment.id === selectedShortMomentId; }) || null;
+    }
+    function shortMechanismFor(moment) {
+      const type = String(moment && moment.type || "source beat").toLowerCase();
+      if (type.indexOf("failure") >= 0 || type.indexOf("mistake") >= 0) return "Tension → visible problem → specific cause or consequence.";
+      if (type.indexOf("curiosity") >= 0 || type.indexOf("conflict") >= 0) return "Open loop → withhold the answer → fast resolution.";
+      if (type.indexOf("reveal") >= 0 || type.indexOf("payoff") >= 0) return "Show proof early → create one question → reveal why it matters.";
+      if (type.indexOf("before") >= 0 || type.indexOf("transformation") >= 0) return "Clear before state → one change → unmistakable after state.";
+      if (type.indexOf("insight") >= 0 || type.indexOf("explanation") >= 0) return "Specific claim → one visual proof point → compact takeaway.";
+      if (type.indexOf("emotion") >= 0 || type.indexOf("surprise") >= 0) return "Human reaction → visual trigger → immediate context.";
+      return "Strong source beat → minimal context → visual payoff.";
+    }
+    function shortTranscriptContext(moment) {
+      const start = Number(moment && moment.start) || 0;
+      const end = Number(moment && moment.end) || start + 8;
+      const lines = (sourceDoc.transcript || []).filter(function(line) {
+        const t = Number(line.t);
+        return Number.isFinite(t) && t >= Math.max(0, start - 8) && t <= end + 8 && !line.scoutGenerated;
+      }).slice(0, 5);
+      if (lines.length) return lines.map(function(line) { return fmt(line.t) + " " + String(line.text || "").trim(); }).join("\n");
+      return String(moment && (moment.evidenceTranscript || moment.evidence || moment.description) || "").trim();
+    }
+    function shortPlatformLabel() {
+      if (applied.platform === "instagram") return "Instagram Reels";
+      if (applied.platform === "youtube") return "YouTube Shorts";
+      return "TikTok";
+    }
+    function shortAngleCopy(moment, mode) {
+      const type = String(moment && moment.type || "").toLowerCase();
+      const payoff = type.indexOf("reveal") >= 0 || type.indexOf("payoff") >= 0 || type.indexOf("transformation") >= 0;
+      const failure = type.indexOf("failure") >= 0 || type.indexOf("mistake") >= 0;
+      const curiosity = type.indexOf("curiosity") >= 0 || type.indexOf("conflict") >= 0;
+      if (mode === "proof") {
+        if (failure) return { hook:"Open on the visible consequence before explaining the mistake.", overlay:"THIS is where it broke", script:"Show the consequence immediately. Give one sentence of context, then land on the concrete cause without repeating the source creator’s wording." };
+        if (payoff) return { hook:"Lead with the finished proof, then briefly rewind.", overlay:"Start with the proof", script:"Show the result first. Use one original line to create curiosity about how it happened, then return to the reference moment for the payoff." };
+        return { hook:"Lead with the strongest visual proof in this moment.", overlay:"Watch this part", script:"Open on the clearest evidence. Add only the context needed to understand it, then finish on the same visual proof." };
+      }
+      if (mode === "tension") {
+        if (curiosity) return { hook:"Hold on the unresolved second just before the answer.", overlay:"WAIT FOR IT", script:"Open before the resolution. Use an original one-line setup that creates a question, delay the answer for a few beats, then resolve visually." };
+        if (failure) return { hook:"Begin one beat before the failure becomes obvious.", overlay:"Something is wrong", script:"Start while everything still looks normal. Introduce one warning sign, then reveal the failure and its consequence." };
+        return { hook:"Start immediately before the selected moment changes state.", overlay:"The next second matters", script:"Create a short open loop around the selected moment. Keep the setup minimal and let the visual change provide the answer." };
+      }
+      if (payoff) return { hook:"Compress the before/after contrast into the first three seconds.", overlay:"BEFORE → AFTER", script:"Use an original before/after framing. Make the contrast readable without copying the source dialogue, then end on the stronger final state." };
+      if (failure) return { hook:"Reframe the failure as a useful discovery.", overlay:"The mistake was the clue", script:"Open with the failure as evidence, not drama. Explain the lesson in one original line and finish with the exact moment the cause becomes clear." };
+      return { hook:"Turn the moment into one clear, memorable takeaway.", overlay:"ONE THING TO NOTICE", script:"State one original takeaway inspired by the selected moment, show the supporting visual, and finish before the idea needs extra explanation." };
+    }
+    function localShortVariants(moment) {
+      const context = shortTranscriptContext(moment);
+      const mechanism = shortMechanismFor(moment);
+      const base = [
+        { key:"proof", name:"Proof First" },
+        { key:"tension", name:"Tension First" },
+        { key:"reframe", name:"Original Reframe" }
+      ];
+      return base.map(function(item) {
+        const copy = shortAngleCopy(moment, item.key);
+        const prompt = [
+          "Create an ORIGINAL 8-second vertical 9:16 creator-style short for " + shortPlatformLabel() + ".",
+          "",
+          "REFERENCE IMAGE",
+          "Use the supplied frame from the source video as a reference for composition, setting, props, lighting, and visual continuity. Do not recreate an identifiable real person’s likeness unless the uploader has permission; otherwise use a generic presenter while preserving the scene logic.",
+          "",
+          "SOURCE MOMENT",
+          fmt(moment.start) + "–" + fmt(moment.end || (Number(moment.start) + 8)) + " · " + String(moment.type || "source beat"),
+          String(moment.description || moment.evidence || ""),
+          "",
+          "NEARBY TRANSCRIPT CONTEXT",
+          context || "No transcript context supplied.",
+          "",
+          "STORYTELLING MECHANISM",
+          mechanism,
+          "",
+          "SHORT CONCEPT — " + item.name.toUpperCase(),
+          "Hook: " + copy.hook,
+          "Voiceover/script direction: " + copy.script,
+          "On-screen text: " + copy.overlay,
+          "",
+          "SHOT PLAN",
+          "0.0–2.0s: Open immediately on the strongest visual beat or the reference composition. No intro.",
+          "2.0–5.5s: Create the " + (item.key === "tension" ? "open loop and delay the answer" : item.key === "proof" ? "proof-to-context turn" : "original reframing") + ".",
+          "5.5–8.0s: Deliver a clear visual payoff and end cleanly enough to loop.",
+          "",
+          "RULES",
+          "- Preserve the underlying idea and storytelling mechanism, not the source creator’s wording.",
+          "- Do not quote or closely paraphrase the source transcript.",
+          "- Do not invent factual claims not supported by the supplied source context.",
+          "- Keep dialogue natural and short enough for 8 seconds.",
+          "- No fake UI text, watermarks, subtitles with gibberish, or generic AI-ad aesthetics.",
+          "- Make the result feel like an original short a real creator could publish."
+        ].join("\n");
+        return {
+          name:item.name,
+          hook:copy.hook,
+          overlay:copy.overlay,
+          script:copy.script,
+          mechanism:mechanism,
+          prompt:prompt
+        };
+      });
+    }
+    async function captureShortReferenceFrame() {
+      const moment = selectedShortMoment();
+      const video = document.getElementById("vid");
+      const canvas = document.getElementById("shortFrameCanvas");
+      const frameEmpty = document.getElementById("shortFrameEmpty");
+      const status = document.getElementById("shortStatus");
+      const download = document.getElementById("downloadShortFrameBtn");
+      if (!moment || !video || !video.src || !Number.isFinite(video.duration) || video.duration <= 0) {
+        shortReferenceFrameDataUrl = null;
+        if (canvas) canvas.hidden = true;
+        if (frameEmpty) {
+          frameEmpty.hidden = false;
+          frameEmpty.textContent = "No real video frame is available for this source.";
+        }
+        if (download) download.disabled = true;
+        if (status) status.textContent = "The prompt is still usable, but upload the real source video to include a reference frame.";
+        return null;
+      }
+      try {
+        video.pause();
+        await seekVideoFrame(video, Math.min(Number(moment.start) || 0, Math.max(0, video.duration - 0.05)));
+        const width = Math.max(1, video.videoWidth || 720);
+        const height = Math.max(1, video.videoHeight || 1280);
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, width, height);
+        shortReferenceFrameDataUrl = canvas.toDataURL("image/png");
+        canvas.hidden = false;
+        if (frameEmpty) frameEmpty.hidden = true;
+        if (download) download.disabled = false;
+        if (status) status.textContent = "Reference frame captured from " + fmt(moment.start) + ".";
+        return shortReferenceFrameDataUrl;
+      } catch (error) {
+        shortReferenceFrameDataUrl = null;
+        if (status) status.textContent = "Could not capture this frame. You can still generate the text package.";
+        return null;
+      }
+    }
+    function renderShortSelection(moment) {
+      selectedShortMomentId = moment.id;
+      shortReferenceFrameDataUrl = null;
+      shortGeneratedVariants = [];
+      const empty = document.getElementById("shortEmpty");
+      const workspace = document.getElementById("shortWorkspace");
+      const results = document.getElementById("shortResults");
+      const status = document.getElementById("shortStatus");
+      const meta = document.getElementById("shortMomentMeta");
+      const title = document.getElementById("shortMomentTitle");
+      const mechanism = document.getElementById("shortMechanism");
+      const canvas = document.getElementById("shortFrameCanvas");
+      const frameEmpty = document.getElementById("shortFrameEmpty");
+      const download = document.getElementById("downloadShortFrameBtn");
+      if (empty) empty.hidden = true;
+      if (workspace) workspace.hidden = false;
+      if (results) results.innerHTML = "";
+      if (status) status.textContent = "Selected moment ready. Capture the real frame, then generate the package.";
+      if (meta) meta.textContent = fmt(moment.start) + " · " + String(moment.provenance || moment.type || "SOURCE MOMENT").toUpperCase();
+      if (title) title.textContent = String(moment.description || moment.evidence || "Selected source moment");
+      if (mechanism) mechanism.textContent = "Mechanism: " + shortMechanismFor(moment);
+      if (canvas) canvas.hidden = true;
+      if (frameEmpty) {
+        frameEmpty.hidden = false;
+        frameEmpty.textContent = document.getElementById("vid") && document.getElementById("vid").src
+          ? "Capture the real frame from this timestamp."
+          : "Upload a source video to capture its real frame.";
+      }
+      if (download) download.disabled = true;
+    }
+    function shortVariantHtml(variant, index) {
+      return '<article class="short-result">' +
+        '<div class="short-result-top"><div><span class="short-result-kicker">VARIANT ' + (index + 1) + '</span><h3>' + esc(variant.name) + '</h3></div></div>' +
+        '<p><b>Hook</b> ' + esc(variant.hook) + '</p>' +
+        '<p><b>Script</b> ' + esc(variant.script) + '</p>' +
+        '<p><b>On-screen text</b> ' + esc(variant.overlay) + '</p>' +
+        '<p><b>Why it works</b> ' + esc(variant.mechanism) + '</p>' +
+        '<div class="short-result-actions">' +
+          '<button type="button" class="primary" data-short-copy="' + index + '">Copy AI Studio prompt</button>' +
+          '<button type="button" data-short-package="' + index + '">Copy full package</button>' +
+        '</div>' +
+      '</article>';
+    }
+    async function generateShortPackage() {
+      const moment = selectedShortMoment();
+      const status = document.getElementById("shortStatus");
+      const results = document.getElementById("shortResults");
+      const button = document.getElementById("generateShortBtn");
+      if (!moment) {
+        if (status) status.textContent = "Select a source moment first.";
+        return;
+      }
+      if (button) button.disabled = true;
+      if (status) status.textContent = "Building three original short concepts…";
+      if (!shortReferenceFrameDataUrl) await captureShortReferenceFrame();
+      let variants = [];
+      try {
+        const response = await fetch(SHORT_URL, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body:JSON.stringify({
+            source:{ title:sourceDoc.title, duration:sourceDoc.duration },
+            moment:{
+              id:moment.id,
+              start:moment.start,
+              end:moment.end,
+              type:moment.type,
+              description:moment.description,
+              evidence:moment.evidence,
+              provenance:moment.provenance
+            },
+            transcriptContext:shortTranscriptContext(moment),
+            mechanism:shortMechanismFor(moment),
+            target:{
+              platform:shortPlatformLabel(),
+              audience:LABELS.audience[applied.audience] || applied.audience,
+              goal:LABELS.goal[applied.goal] || applied.goal,
+              durationSeconds:8,
+              aspectRatio:"9:16"
+            }
+          })
+        });
+        if (response.ok) {
+          const json = await response.json();
+          if (json && Array.isArray(json.variants) && json.variants.length) variants = json.variants.slice(0,3);
+        }
+      } catch (error) {}
+      if (!variants.length) variants = localShortVariants(moment);
+      shortGeneratedVariants = variants.map(function(variant, index) {
+        const fallback = localShortVariants(moment)[index] || localShortVariants(moment)[0];
+        return {
+          name:String(variant.name || fallback.name),
+          hook:String(variant.hook || fallback.hook),
+          overlay:String(variant.overlay || variant.onScreenText || fallback.overlay),
+          script:String(variant.script || fallback.script),
+          mechanism:String(variant.mechanism || fallback.mechanism),
+          prompt:String(variant.prompt || fallback.prompt)
+        };
+      });
+      if (results) results.innerHTML = shortGeneratedVariants.map(shortVariantHtml).join("");
+      if (status) status.textContent = "Ready. Pair the copied prompt with the captured reference frame in AI Studio.";
+      if (button) button.disabled = false;
+    }
+    function downloadShortReferenceFrame() {
+      if (!shortReferenceFrameDataUrl) return;
+      const moment = selectedShortMoment();
+      const a = document.createElement("a");
+      a.href = shortReferenceFrameDataUrl;
+      a.download = "creator-lab-reference-" + String(moment && moment.id || "moment") + "-" + String(Math.round(Number(moment && moment.start) || 0)) + "s.png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    async function copyShortText(text, label) {
+      const status = document.getElementById("shortStatus");
+      try {
+        await navigator.clipboard.writeText(text);
+        if (status) status.textContent = label + " copied.";
+      } catch (error) {
+        if (status) status.textContent = "Copy failed. Select the text manually from the generated package.";
+      }
+    }
+    function fullShortPackageText(variant) {
+      const moment = selectedShortMoment();
+      return [
+        "CREATOR LAB · SOURCE → SHORT",
+        "",
+        "SOURCE: " + String(sourceDoc.title || "Untitled"),
+        "MOMENT: " + (moment ? fmt(moment.start) + " · " + String(moment.description || "") : "—"),
+        "MECHANISM: " + String(variant.mechanism || ""),
+        "",
+        "HOOK",
+        String(variant.hook || ""),
+        "",
+        "SCRIPT",
+        String(variant.script || ""),
+        "",
+        "ON-SCREEN TEXT",
+        String(variant.overlay || ""),
+        "",
+        "AI STUDIO PROMPT",
+        String(variant.prompt || ""),
+        "",
+        "REFERENCE FRAME",
+        shortReferenceFrameDataUrl ? "Captured from the real uploaded source at the selected timestamp." : "Not captured. Add a real frame from the selected source moment."
+      ].join("\n");
+    }
+
     function renderSourcePanel() {
       document.getElementById("srcMeta").textContent =
         sourceDoc.title + " · " + fmt(sourceDoc.duration) + " · " + (sourceDoc.analysisMode || "");
@@ -2968,6 +3362,7 @@
         v.currentTime = m.start;
         v.play().catch(() => {});
       }
+      renderShortSelection(m);
     }
 
     /*
@@ -4105,6 +4500,22 @@
       event.target.value = "";
     });
     document.getElementById("autoScoutBtn").addEventListener("click", runAutoScout);
+    document.getElementById("captureShortFrameBtn")?.addEventListener("click", captureShortReferenceFrame);
+    document.getElementById("downloadShortFrameBtn")?.addEventListener("click", downloadShortReferenceFrame);
+    document.getElementById("generateShortBtn")?.addEventListener("click", generateShortPackage);
+    document.getElementById("shortResults")?.addEventListener("click", function(event) {
+      const copyButton = event.target.closest("[data-short-copy]");
+      const packageButton = event.target.closest("[data-short-package]");
+      if (copyButton) {
+        const index = Number(copyButton.getAttribute("data-short-copy"));
+        const variant = shortGeneratedVariants[index];
+        if (variant) copyShortText(variant.prompt, "AI Studio prompt");
+      } else if (packageButton) {
+        const index = Number(packageButton.getAttribute("data-short-package"));
+        const variant = shortGeneratedVariants[index];
+        if (variant) copyShortText(fullShortPackageText(variant), "Full short package");
+      }
+    });
     document.getElementById("retryBtn").addEventListener("click", () => {
       clearCurrentAnalysisCache();
       document.getElementById("analyzeBtn").click();
